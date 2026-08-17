@@ -4,6 +4,10 @@ sessions/
 npm/
 git/
 state/
+bin/
+tmp/
+mcp-cache.json
+models-store.json
 *.log
 
 # Local/private overrides
