@@ -4,14 +4,13 @@ Personal Pi configuration. The repository is intended to be the Pi agent directo
 
 ## Design
 
-Pi remains the runtime and user-facing harness. This repository adds only the workflow-specific layer that Pi deliberately leaves open to extensions.
+Pi remains the runtime and user-facing harness. The detailed workflow stays normative as one file at `workflow/global-workflow.md`; it is not split or reimplemented as a TypeScript workflow engine. `AGENTS.md` is the bootstrap plus the small Pi runtime binding that maps runtime-specific orchestration terms onto Pi.
 
-The detailed source workflow stays normative as one file at `workflow/global-workflow.md`. It is not split and is not translated wholesale into TypeScript. `AGENTS.md` is a small bootstrap: compact low-risk work stays cheap; substantive work loads the full policy.
+Delegated execution uses the existing `pi-subagents` package directly. This repository does not wrap or reimplement its child-session execution, parallelism, chaining, cancellation, lifecycle, usage accounting, or acceptance machinery.
 
-A single Pi extension, `extensions/workflow/index.ts`, adds two tools:
+The only custom workflow extension is `extensions/workflow/index.ts`, which exposes one narrow tool:
 
-- `workflow_models` — query the live Pi model catalog with hard filters and pagination.
-- `workflow_delegate` — run one to four bounded Job Leases as isolated in-memory Pi SDK child sessions.
+- `workflow_models` — inspect the live Pi model catalog with hard filters and pagination, including capability and price metadata used by the workflow's model/delegation decision.
 
 ```text
 parent Pi
@@ -19,16 +18,21 @@ parent Pi
   │    └─ compact or workflow/global-workflow.md
   ├─ workflow_models
   │    └─ live availability / context / reasoning / modality / price metadata
-  ├─ workflow_delegate
+  ├─ subagent  (pi-subagents)
   │    ├─ role from agents/<role>.md
-  │    ├─ explicit model + thinking
-  │    └─ isolated in-memory child Pi session(s)
-  │         └─ code-centric researcher/reviewer roles may use Semble CLI via read-only bash
-  └─ mcp
+  │    ├─ per-run model + thinking when selected
+  │    ├─ fresh/fork context and bounded child execution
+  │    └─ usage / lifecycle / cancellation handled by pi-subagents
+  └─ mcp  (pi-mcp-adapter)
        └─ lazy MCP discovery for the parent (Semble initially)
 ```
 
-The extension intentionally does **not** add a workflow database, generic DAG language, background run manager, duplicate session format, fixed role→model table, or another policy engine. Sequential workflow remains visible to the parent Pi; independent jobs can be parallelized by putting them in one `workflow_delegate` call.
+The boundary is deliberate:
+
+- Markdown policy decides direct vs delegated execution, T0/T1/T2, audit requirements, evidence, and completion; Pi-specific runtime terms are interpreted by the binding in `AGENTS.md`.
+- `pi-subagents` owns subagent runtime mechanics.
+- `workflow_models` supplies live model metadata when availability/capability/price affect the decision.
+- No fixed role→model map is kept in this repository.
 
 ## Layout
 
@@ -47,9 +51,9 @@ The extension intentionally does **not** add a workflow database, generic DAG la
 │  └─ pre-action-auditor.md
 ├─ extensions/
 │  └─ workflow/
-│     └─ index.ts
+│     └─ index.ts              # workflow_models only
 └─ workflow/
-   └─ global-workflow.md
+   └─ global-workflow.md       # detailed policy source of truth
 ```
 
 Pi credentials, sessions, package caches, and runtime state are ignored by Git.
@@ -64,69 +68,63 @@ git clone https://github.com/poruru210/agent-workflow-pi ~/.pi/agent
 
 If `~/.pi/agent` already contains credentials or sessions, preserve those files and place this repository there without deleting runtime state. `auth.json`, `sessions/`, `npm/`, `git/`, and `state/` are intentionally untracked.
 
-Pi auto-discovers `extensions/workflow/index.ts`. `settings.json` loads `pi-mcp-adapter`, and `mcp.json` defines Semble.
+`settings.json` pins and loads:
+
+- `pi-mcp-adapter@2.26.0`
+- `pi-subagents@0.40.0`
+
+Pi auto-discovers `extensions/workflow/index.ts`; `mcp.json` defines Semble.
+
+## Delegation with pi-subagents
+
+The parent uses the installed `subagent` tool directly. There is intentionally no workflow-specific delegation facade in the first version.
+
+Workflow role files use `pi-subagents` agent frontmatter. They do not pin a model, so the parent can choose a currently appropriate model per job. They default to:
+
+- `systemPromptMode: replace`
+- `inheritProjectContext: false`
+- `inheritSkills: false`
+- `defaultContext: fresh`
+- no ambient child extensions (`extensions:` is empty)
+
+This keeps researcher/reviewer/auditor jobs independent from the parent workflow context and prevents recursive orchestration unless a future role explicitly needs it. Read-only roles that retain `bash` disable `pi-subagents`' implementation completion guard because their job is verification, not implementation.
+
+Each delegated turn must still carry the bounded Job Lease required by `global-workflow.md`. Runtime completion is not semantic PASS; the parent integrates the returned evidence under the workflow's normal gates.
+
+`pi-subagents` is intentionally used with its normal model-facing tool surface in this first version. We do not pre-emptively reduce its schema. If representative E2E tasks show measurable tool-selection confusion, context overhead, or unnecessary orchestration, a narrower facade can be added later based on evidence.
 
 ## Dynamic model selection
 
-Immediately before delegation, the parent calls `workflow_models` with known hard requirements such as minimum context size, reasoning support, image input, provider, or a search string. Results are paginated instead of dumping the entire model catalog into context.
+`workflow_models` may be called before the delegation value decision when live availability/capability/price materially affects whether delegation is worthwhile. Catalog inspection itself is not delegation.
 
-The full workflow policy remains authoritative for selection:
+The policy remains authoritative:
 
-1. establish minimum capability sufficiency for the concrete Job Lease;
-2. eliminate incompatible/unavailable candidates from live Pi metadata;
-3. choose reasoning independently;
-4. among sufficiently capable candidates, optimize risk-adjusted cost.
+1. inspect live candidates when needed;
+2. establish minimum capability sufficiency for the concrete Job Lease;
+3. compare direct execution and delegation using risk-adjusted total cost;
+4. if delegation is useful, choose model and reasoning separately;
+5. start the bounded job through `pi-subagents`.
 
-Price and model names are not treated as intelligence rankings. There is deliberately no fixed role→model mapping or local model-performance database at this stage.
-
-## Pi SDK subagents
-
-`workflow_delegate` accepts one to four jobs. Jobs in the same call are independent and run concurrently; dependent work is delegated in later calls after the parent integrates prior evidence.
-
-Each job supplies:
-
-- versioned Job Lease id;
-- role;
-- exact `provider/model`;
-- thinking level;
-- complete bounded Job Lease text;
-- optional working directory.
-
-For each child, the extension uses Pi's own `ModelRuntime`, `createAgentSession`, `SessionManager.inMemory`, and `DefaultResourceLoader`. Ambient context files, skills, prompt templates, themes, and extensions are disabled, so the child does not load the global workflow or recursively become another orchestrator.
-
-The selected role file provides both the role prompt and tool allowlist. A role is therefore just a Markdown file:
-
-```markdown
----
-tools: read,bash
----
-You are a bounded reviewer. ...
-```
-
-Adding a new role does not require changing the TypeScript extension; add another `agents/<role>.md` file with a `tools:` declaration and its bounded instructions.
-
-The child result returned to the parent includes output and turn/input/output/cache/cost usage. Long output is clipped in model context while the complete result remains in tool details. Usage is efficiency/routing evidence only; workflow correctness still comes from the required audit/test/evidence gates.
+Price and model names are metadata, not intelligence rankings. There is no fixed role→model table or local model-performance database.
 
 ## Code search / Semble
 
-`pi-mcp-adapter` exposes MCP to the parent through one compact proxy tool and discovers concrete MCP tools on demand. Servers are lazy by default. The initial server is Semble:
+`pi-mcp-adapter` exposes MCP to the parent through a compact proxy. The initial server is Semble:
 
 ```text
 uvx --from semble[mcp]==0.5.5 semble
 ```
 
-Child sessions intentionally do not reload the MCP adapter. Instead, code-centric read-only roles that need independent semantic discovery use Semble directly through their existing `bash` tool:
+Workflow child roles intentionally have no ambient extensions. Code-centric read-only roles that need independent semantic discovery use Semble directly through their existing `bash` allowlist:
 
 ```bash
 uvx --from "semble[mcp]==0.5.5" semble search "<query>" .
 ```
 
-This applies to `workflow-researcher`, `root-cause-reviewer`, `early-auditor`, `final-auditor`, and to `pre-action-auditor` when the audited target is a code/configuration repository. Semble may write only its own cache; it must not modify the target repository. Use grep when exhaustive literal occurrence coverage is required.
+This applies to `workflow-researcher`, `root-cause-reviewer`, `early-auditor`, `final-auditor`, and to `pre-action-auditor` for code/configuration repositories. Semble may update its own cache but must not modify the audited target. Use grep when exhaustive literal occurrence coverage is required.
 
-This keeps semantic discovery independent inside researcher/reviewer roles without adding child-side MCP lifecycle, extension selection, or another tool-routing layer.
+## Evolution rule
 
-## Why this boundary
+Do not add a workflow engine, run database, completion hook, permission layer, or delegation facade merely because Pi can support one. Add machinery only after a representative E2E demonstrates a concrete gap that cannot be handled cleanly by the product-neutral policy plus existing Pi/pi-subagents mechanisms.
 
-The objective is not to minimize lines of code at any cost. It is to keep Pi's substrate reusable while putting only workflow-specific behavior in the extension.
-
-Pi owns model/auth/session/tool/context mechanics. The custom harness owns dynamic delegation policy and bounded worker execution. The Markdown workflow owns the detailed normative process. More lifecycle machinery should be added only when a concrete workflow requirement cannot be expressed cleanly through these existing layers.
+The first measurements should focus on outcome quality, independent-audit execution, duplicate reasoning/review loops, parent/child turns, token/cache usage, total cost, and convergence—not on minimizing the number of tool parameters by assumption.
