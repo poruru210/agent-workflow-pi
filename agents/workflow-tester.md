@@ -1,6 +1,7 @@
 ---
 name: workflow-tester
 description: Verification worker for authorized behavioral and preservation test partitions.
+workflowPreferredModel: openai-codex/gpt-5.6-luna
 tools: read,bash
 extensions:
 systemPromptMode: replace
