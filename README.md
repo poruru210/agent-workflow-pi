@@ -2,154 +2,158 @@
 
 Personal Pi configuration intended to live as the Pi agent directory (`~/.pi/agent`).
 
-The repository provides an **opt-in, evidence-driven engineering workflow** on top of Pi and `pi-subagents`.
+The repository provides an **opt-in, evidence-driven engineering workflow** on top of Pi. Its purpose is to preserve the original workflow's objective, evidence, authority, and phase boundaries without turning Pi into a custom multi-agent runtime.
 
 ## Core design
 
-`workflow/global-workflow.md` owns workflow semantics. Pi and `pi-subagents` own execution mechanics and generic agent personas. This repository adds only the workflow-specific binding that is not already native.
+`workflow/global-workflow.md` owns workflow semantics. `skills/agent-workflow/SKILL.md` owns the compact/normal bootstrap. Pi, `pi-subagents`, and `pi-review` own generic execution mechanics.
 
 ```text
-explicit /workflow activation
+explicit /workflow
         │
         ▼
-workflow/global-workflow.md
-  semantic source of truth
+agent-workflow skill
+  compact eligibility
         │
-        ▼
-current parent Pi
-  architect / orchestrator / integrator
-  objective / risk / architecture
-  responsibility boundaries + change contract
-  Job Leases + model/reasoning selection
-  evidence integration + Go/No-Go
+        ├─ COMPACT ──> parent direct answer
         │
-        ├──────────────────────────────────────────────┐
-        ▼                                              ▼
- tiny/integration work                    pi-subagents builtins/native gates
-                                          scout / researcher / worker / reviewer
-                                          acceptance.verify / gate
-        │                                              │
-        └───────────────────────┬──────────────────────┘
-                                ▼
-                         parent semantic gate
+        └─ NORMAL
+             │
+             ▼
+     workflow/global-workflow.md
+       semantic source of truth
+             │
+             ▼
+          parent Pi
+     architecture / contracts
+     decomposition / model choice
+     evidence integration / Go-No-Go
+             │
+      ┌──────┴──────────────────────────┐
+      │                                 │
+      ▼                                 ▼
+Pi-native execution               candidate-bearing change
+(parent / pi-subagents /                  │
+native tools as appropriate)              ▼
+                                   Early Audit Gate
+                                          │
+                                     verification
+                                          │
+                                          ▼
+                                   Final Audit Gate
+                                          │
+                                          ▼
+                                    completion eligible
 ```
 
-## Explicit activation
+The workflow does **not** define a semantic `worker`, `reviewer`, `researcher`, or other SubAgent role. Named Pi agents are capabilities the parent may choose when they satisfy the current bounded job contract.
 
-`workflow/global-workflow.md` is not ambient policy. Normal Pi use remains normal Pi use. Activate the engineering workflow explicitly with:
+## Explicit activation and compact bootstrap
+
+Normal Pi use remains normal Pi use. Activate the workflow with:
 
 ```text
 /workflow <request>
 ```
 
-Using Pi's native `subagent` capability outside `/workflow` does not implicitly activate this engineering workflow.
+The command loads `skills/agent-workflow/SKILL.md`. Compact mode is allowed only when every original compact condition is affirmatively true: short, single-purpose, read-only, low-risk, no change/test/audit/delegation/external action/correction/release decision, no volatile identity dependency, and no material harm from a wrong answer. Any false or uncertain condition enters the normal workflow.
 
-## Parent / worker responsibility boundary
+This prevents the workflow machinery itself from becoming the objective for trivial read-only work.
 
-The parent retains whole-task decisions: objective/acceptance, risk/scope, architecture/responsibility boundaries, planned semantic delta, preservation contract, decomposition/Job Leases, model/reasoning choice, evidence integration, snapshot/release identity, finding materiality, and Go/No-Go.
+## Boundary-first execution
 
-For non-trivial candidate-bearing implementation, repair, or migration, the normal writer is the **builtin `worker`**. Give it one coherent bounded package for tightly coupled runtime, public types, focused tests, and documentation. Split only at genuinely independent ownership/integration boundaries.
+The parent retains whole-task decisions: objective/acceptance, scope/risk, architecture/responsibility boundaries, planned semantic delta, preservation contract, decomposition, model/reasoning choice, evidence integration, snapshot/release identity, finding materiality, correction scope, and Go/No-Go.
 
-The worker owns ordinary local implementation design inside the approved lease. If the frozen objective, architecture/responsibility boundary, semantic delta, preservation contract, scope, or authority must materially change, it escalates instead of silently redesigning the task.
+Available execution mechanisms include builtin `scout`, `researcher`, `worker`, `reviewer`, `oracle`, `delegate`, native `acceptance.verify` / `gate`, direct parent execution, and the pinned `pi-review` extension. The parent chooses among them; running a particular named mechanism does not itself satisfy a semantic phase. Workflow-only tools are disabled outside explicit workflow activation and enabled before the activated agent turn.
 
-Parent-direct candidate editing is an exception for genuinely tiny/mechanical edits, formatter-only corrections, narrow integration/conflict resolution, unavailable/inapplicable delegation, or cases where no coherent writer lease can be formed without the parent effectively doing the same implementation work. Immediate wall-clock savings alone are not enough to bypass the writer boundary.
+## Required Early / Final Audit Gate
 
-## Reuse pi-subagents builtins
+Candidate-bearing normal-workflow changes have two mandatory independent code-audit gates:
 
-No workflow-specific agent persona is currently kept in this repository. Runtime roles come from `pi-subagents`:
+```text
+implementation/correction complete
+          ↓
+implementation snapshot frozen
+          ↓
+EARLY AUDIT GATE
+          ↓
+findings integrated/dispositioned
+          ↓
+verification / integration
+          ↓
+release candidate frozen
+          ↓
+FINAL AUDIT GATE
+          ↓
+parent Go/No-Go
+```
 
-| Workflow need | Runtime mechanism | Notes |
-|---|---|---|
-| Fast local code reconnaissance | builtin `scout` | Compressed local context when it preserves parent context. |
-| Official docs/specs/upstream/web research | builtin `researcher` + `pi-web-access` | Prefer primary/current sources; useful during design and compatibility work. |
-| Candidate-bearing implementation/correction | builtin `worker` | Fresh context + bounded writer Job Lease. |
-| Blind root-cause challenge | builtin `reviewer` | Fresh context + root-cause Job Lease. |
-| Early implementation audit | builtin `reviewer` | Fresh context + early-audit Job Lease. |
-| Deterministic focused/full/E2E/static verification | native `acceptance.verify` / `gate` | Carried by a fresh no-edit low-cost `worker` run; verbose logs go to artifacts. |
-| Adaptive test-failure triage | builtin `worker` | Fresh no-edit diagnostic lease; low-cost model; only when needed. |
-| Final release-candidate audit | builtin `reviewer` | Fresh context + final-audit Job Lease. |
-| External-write pre-action audit | builtin `reviewer` | Fresh context + pre-action Job Lease. |
+`extensions/workflow/audit-gate.ts` is the small mechanical interlock for these two gates. It intentionally does not implement the rest of the workflow as a state machine.
 
-Generic personas remain upstream-owned. Do not eject/copy them merely to add workflow terminology.
+### What the Gate enforces
 
-## Research
+For each audit attempt it:
 
-Use builtin `scout` for local code reconnaissance.
+- freezes a Git candidate identity covering HEAD, tracked diff/status, and untracked-file hashes;
+- records the parent-selected audit model and reasoning;
+- invokes the pinned `pi-review` in `--fresh` mode;
+- applies the selected model/reasoning **after** the fresh review branch is created;
+- reduces review tools to `read` + `bash` and blocks other tool calls;
+- detects persistent candidate mutation after each review shell result and at audit completion;
+- consumes `pi-review:started`, `pi-review:settled`, and `pi-review:ended` lifecycle events;
+- persists the complete independent review output and identity/model/verdict evidence;
+- closes a gate only for an unchanged candidate, `correct` verdict, expected fresh/return lifecycle, and matching effective model/reasoning;
+- refuses Final until Early is closed for the exact same current identity.
 
-Use builtin `researcher` for official documentation, specifications, upstream issues/PRs, compatibility information, and other web evidence. `pi-web-access` supplies the builtin researcher's web tools. Research output is design input; the parent remains architecture/contract authority.
+Receipts are identity-bound rather than manually invalidated. If a correction changes the candidate, the prior receipt no longer matches and is stale automatically.
 
-Builtin `scout`/`researcher` have default `context.md`/`research.md` outputs. Workflow launches should normally override those defaults with `output: false` and concise inline results, or use an explicit non-candidate artifact path plus `outputMode: "file-only"` for large briefs. Disable progress files for short read-only runs unless durable progress is intentional.
+When `/workflow` changes the Git candidate, an `agent_settled` interlock prevents silent completion. Open gates cause a continuation requiring the missing audit; once both ordered receipts are closed, the parent must integrate the evidence, finish the semantic Go/No-Go judgment, and explicitly call `workflow_audit_gate action=complete`. That final call rechecks the unchanged current identity, so any post-Final edit makes the receipts stale again.
 
-This prevents the parent from carrying large upstream searches and long source material in its own context when a concise sourced handoff is enough.
+The Gate does **not** decide finding materiality, verification sufficiency, semantic acceptance, review-target coverage, or Go/No-Go. Those remain parent decisions under `global-workflow.md`. Identity binding proves which candidate existed during the audit; the parent must ensure the selected `pi-review` target covers the scope claimed by that audit.
 
-## Reviewer independence
+The current mechanical identity adapter requires a Git working tree. Non-Git tasks still use the semantic workflow but do not receive this Git identity interlock.
 
-Independent review uses builtin `reviewer` with explicit `context: "fresh"`.
+## pi-review fork
 
-Supply before blind-first review:
+This configuration pins the generic integration-enabled fork:
 
-- original requirement/source of truth;
-- parent-approved architecture/responsibility boundary;
-- acceptance criteria and preservation contract;
-- baseline and exact snapshot/release-candidate identity;
-- raw diff/identity-bound evidence;
-- scope, risk vectors, and leased claims.
+```text
+git:github.com/poruru-code/pi-review@15c1ddb3211ca781f64b537e47ca70518fbd8c31
+```
 
-Withhold until initial findings are fixed:
+The fork remains generic: it publishes machine-readable review lifecycle events, review IDs, strict verdicts, and selector-free `--fresh` / `/end-review` actions. It contains no Early/Final/workflow-specific concepts. Those meanings live only in this repository.
 
-- implementer rationale;
-- parent PASS/causal conclusion;
-- prior reviewer conclusions;
-- later test conclusions unless raw test evidence is itself the phase input.
+## Research and implementation mechanisms
 
-The reviewer must finish every safely reviewable leased claim/risk vector even after finding a blocker. The goal is one strong bounded review that returns the complete finding set for that snapshot, followed by a correction batch and only the necessary differential re-review.
+Use Pi-native mechanisms only when they improve the critical path, quality, independence, or context efficiency.
 
-Audit reasoning is not reduced merely to save tokens when stronger reasoning is likely to reduce missed findings and repeated review/fix rounds.
+- `scout`: fast local reconnaissance.
+- `researcher` + `pi-web-access`: official docs/spec/upstream/web evidence.
+- `worker`: generic bounded execution when delegation is useful.
+- `reviewer`: generic fresh independent review/challenge when appropriate outside or in addition to the dedicated Early/Final gate.
+- `oracle` / `delegate`: when their generic semantics fit.
+
+These are not mandatory workflow phases or a fixed routing table.
+
+Builtin `scout`/`researcher` can create default `context.md`/`research.md` files. Workflow calls should normally use `output: false` or an explicit non-candidate artifact path when those defaults would dirty the candidate.
 
 ## Verification without expensive log ingestion
 
-Verification remains a separate semantic phase; do not move full behavioral tests before an early-audit gate when the workflow requires that order.
+Verification is separate from audit. After the applicable Early Gate, prefer native deterministic `acceptance.verify` or `gate` where possible. Use a low-cost capability-sufficient carrier only when a SubAgent is useful; do not inherit the parent model by accident.
 
-For deterministic verification:
-
-1. freeze/confirm the candidate identity required by the workflow;
-2. launch a fresh **no-edit builtin `worker`** using an explicitly selected low-cost capability-sufficient model and reasoning level, normally with `output: false` and `progress: false`;
-3. attach one `gate` command or a matrix of native `acceptance.verify` commands;
-4. redirect verbose/full/E2E stdout/stderr to run/mission/temp artifacts outside candidate-bearing files;
-5. return only concise exit/status, counts, failed-test names, a bounded tail, artifact path, and useful identity/hash data;
-6. do not load successful full logs into the parent or reviewer context.
-
-If a deterministic partition FAILs or is BLOCKED, preserve the full artifact. Launch a fresh cheap no-edit `worker` only when adaptive triage is useful. Give that child the artifact path plus minimal metadata; it may inspect the log and run bounded diagnostics but may not edit the candidate. The parent then classifies product failure vs test/setup/environment failure vs UNPROVEN and decides whether a correction lease is needed.
-
-This deliberately spends model reasoning on architecture and independent audit, not on repeatedly ingesting successful E2E output.
-
-Native acceptance/gate evidence does not itself establish C0 PASS, T1/T2 closure, change-safety closure, or release PASS; those remain parent semantic decisions.
-
-## Job Lease and child identity
-
-Every delegated workflow job receives a bounded Job Lease containing the decision-bearing information needed by that child: semantic phase/role, objective/acceptance IDs, target/evidence identity, scope/authority, design constraints where relevant, required evidence/risk vectors, selected model/reasoning, stopping conditions, and parent integration method.
-
-Use explicit fresh context for independent workflow children unless a concrete same-job reason requires otherwise. Use retained `resume` only while the same bounded job, role, target identity, capability requirement, and independence assumptions remain valid.
-
-## Model preferences and reasoning
-
-`extensions/workflow/index.ts` exposes workflow-only ordered preference hints for the reused builtin `scout`, `researcher`, `worker`, and `reviewer`. The current first candidate is Luna for all four, but this is not a pin or native fallback chain.
-
-The parent evaluates capability, modality/context, independence/diversity, current availability, and cost before every launch and passes a concrete model explicitly.
-
-Reasoning is selected per Job Lease. Builtin thinking values are defaults, not workflow pins. Broad independent audits may justify high reasoning. Deterministic verification carriers and routine failure triage normally use a low-cost model and only the reasoning needed for their bounded work.
-
-Before each delegated turn, report semantic job/phase, runtime agent, concrete selected provider/model, selected reasoning, and rationale. After terminal state, report selected model, selected reasoning, effective model, effective reasoning, and fallback status. If effective reasoning remains unavailable after one native status inspection, report `effective reasoning: UNPROVEN`.
-
-## Pi runtime mechanics
-
-`pi-subagents` owns agent discovery, `workflowScript`, child lifecycle/status/wait/stop/resume, worktrees, missions, receipts/artifacts/usage, native acceptance/gates, supervisor coordination, model execution, and operational fallback.
-
-This repository must not add a custom launcher, scheduler, lifecycle manager, mission clone, worktree manager, acceptance engine, delegation scorecard, or workflow state machine around those functions.
+For verbose/full/E2E commands, store full output outside candidate-bearing files and return concise status/counts/failures/bounded tail/path/identity. Preserve failed logs for triage; do not repeatedly ingest successful full logs.
 
 ## `workflow_models`
 
-The `workflow_models` fact surface reports live model/catalog/session facts and workflow preference hints for reused builtins. It does **not** rank model quality, decide capability sufficiency, choose models, decide delegation, or perform semantic fallback.
+`extensions/workflow/index.ts` exposes `workflow_models`, a live **fact surface** for available models, context/modality/reasoning capability, supported thinking levels, price metadata, session scope, current parent model, and preference hints.
+
+It does not rank model quality, decide capability sufficiency, or select the model. The parent chooses a concrete model/reasoning per bounded job. Audit reasoning should not be reduced merely to save tokens when stronger reasoning is likely to reduce missed findings or repeated correction rounds.
+
+## Pi runtime ownership
+
+`pi-subagents` owns generic child discovery, lifecycle, worktrees, missions/artifacts, native acceptance, execution, and operational fallback. This repository does not add another launcher, scheduler, DAG language, mission format, worktree manager, acceptance engine, or generic SubAgent state machine.
+
+`pi-review` owns generic code-review behavior. This repository consumes its public lifecycle seam rather than copying its reviewer prompt or embedding workflow semantics into the fork.
 
 ## Layout
 
@@ -161,11 +165,27 @@ The `workflow_models` fact surface reports live model/catalog/session facts and 
 ├─ mcp.json
 ├─ prompts/
 │  └─ workflow.md
+├─ skills/
+│  └─ agent-workflow/
+│     └─ SKILL.md
 ├─ extensions/
-│  ├─ subagent/config.json
-│  └─ workflow/index.ts
+│  ├─ subagent/
+│  │  └─ config.json
+│  └─ workflow/
+│     ├─ index.ts
+│     └─ audit-gate.ts
 └─ workflow/
    └─ global-workflow.md
 ```
 
-`settings.json` pins `pi-mcp-adapter@2.26.0`, `pi-subagents@0.50.0`, `pi-web-access@0.16.0`, and `pi-effort` at Git commit `06183a6276d98ac039e52678273e9f8342552f9c`. Dependency upgrades should trigger a targeted recheck of the builtin roles and native seams this repository relies on.
+## Setup
+
+For a fresh Pi user directory:
+
+```bash
+git clone https://github.com/poruru210/agent-workflow-pi ~/.pi/agent
+```
+
+If `~/.pi/agent` already contains credentials, sessions, package caches, or machine-local overrides, preserve them. `auth.json`, runtime sessions/state/caches, logs, environment files, and local-only overrides are intentionally not repository content.
+
+`settings.json` pins the runtime packages this configuration depends on. Dependency upgrades should trigger a targeted recheck of the native seams used by this repository rather than a wholesale rewrite of the workflow.

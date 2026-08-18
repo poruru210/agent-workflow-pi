@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { registerWorkflowAuditGate } from "./audit-gate.ts";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
-// Workflow-only preference hints for pi-subagents builtins reused directly by this
-// repository. They do not modify builtin agents, pin models, or participate in
-// pi-subagents native model resolution.
+// Workflow-only preference hints for pi-subagents builtins. They are facts/hints
+// for parent judgment, not workflow phases, model pins, or a role-routing table.
 const WORKFLOW_PREFERRED_MODELS: Record<string, string[]> = {
   researcher: ["openai-codex/gpt-5.6-luna"],
   reviewer: ["openai-codex/gpt-5.6-luna"],
@@ -13,12 +13,14 @@ const WORKFLOW_PREFERRED_MODELS: Record<string, string[]> = {
   worker: ["openai-codex/gpt-5.6-luna"],
 };
 
-export default function workflowModelCatalog(pi: ExtensionAPI) {
+export default function workflowExtension(pi: ExtensionAPI) {
+  registerWorkflowAuditGate(pi);
+
   pi.registerTool({
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered workflow preference hints for reused pi-subagents builtin roles. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
+      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered preference hints for generic pi-subagents builtins. This tool does not rank model quality, decide capability sufficiency, select a model, bind a semantic phase to an agent, or decide workflow policy.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),

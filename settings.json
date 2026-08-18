@@ -3,6 +3,7 @@
     "npm:pi-mcp-adapter@2.26.0",
     "npm:pi-subagents@0.50.0",
     "npm:pi-web-access@0.16.0",
+    "git:github.com/poruru-code/pi-review@15c1ddb3211ca781f64b537e47ca70518fbd8c31",
     "git:github.com/ricardofrantz/pi-effort@06183a6276d98ac039e52678273e9f8342552f9c"
   ]
 }
