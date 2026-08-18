@@ -26,6 +26,8 @@ Use the installed `pi-subagents` package directly for runtime mechanics. Do not 
 - Use missions/state for durable run linkage, artifacts, receipts, decisions, usage, and small recovery checkpoints. They are not the semantic workflow engine.
 - If exact child launch resolution is genuinely decision-bearing, use public `pi-subagents/preflight`. If extension-owned child launch is ever genuinely required, use public `pi-subagents/delegation`. Do not add another launcher.
 
+For a non-trivial exploration or implementation phase, do not choose parent-direct execution from an unexpanded intuition that the parent is faster. Before the decision, name at least one concrete ready worker package and briefly compare its bounded work against parent-direct work: lease/instruction cost, launch/wait cost, shared-state coordination, integration/reverification cost, expected wall-clock effect, and quality/risk benefit. Parent-direct remains valid when the risk-adjusted net benefit of delegation is negative. Re-run this checkpoint if the implementation materially expands in file count, responsibility boundaries, expected duration, blockers, or independently executable packages.
+
 ## Model and reasoning
 
 `workflow_models` is a live **fact surface only**. It may expose available model IDs, context/modality, reasoning capability, supported thinking levels, price metadata, the current parent model/thinking state, and each workflow role's ordered declarative `workflowPreferredModels`. It must not rank model quality, decide capability sufficiency, or implement workflow policy.
@@ -49,7 +51,7 @@ Native `fallbackModels` remain an operational provider/runtime fallback for quot
 
 Before every delegated workflow turn, show the user the bounded job/role, the **concrete selected provider/model**, the selected reasoning level, and the rationale. Never use only `parent inherited` or equivalent as the model disclosure.
 
-After the child completes, use Pi/pi-subagents runtime metadata to confirm the effective model and reasoning. Prefer effective metadata already returned by the runtime; otherwise inspect the native run status once. If `attemptedModels` shows fallback or the effective model differs from the selected model, disclose that change explicitly. The runtime's actual model/thinking identity is execution evidence; it does not replace semantic review.
+After every delegated workflow turn reaches a terminal state, report all five runtime-identity fields: **selected model, selected reasoning, effective model, effective reasoning, and fallback status**. Prefer effective metadata already returned by `pi-subagents`; otherwise inspect the native run status once. If runtime status exposes `model`, `thinking`, or `attemptedModels`, use those values rather than inferring from the absence of an error or mismatch notification. If effective reasoning is not exposed after that one status inspection, report `effective reasoning: UNPROVEN` together with the accepted selected reasoning; do not silently equate accepted configuration with observed runtime identity. If fallback or any effective value differs from the selected value, disclose the difference explicitly. This disclosure rule does not by itself require a respawn when the accepted configuration remains valid under `global-workflow.md`; semantic acceptance still follows the workflow's evidence rules.
 
 ## General repository rules
 
