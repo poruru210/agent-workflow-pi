@@ -28,16 +28,27 @@ Use the installed `pi-subagents` package directly for runtime mechanics. Do not 
 
 ## Model and reasoning
 
-`workflow_models` is a live **fact surface only**. It may expose available model IDs, context/modality, reasoning capability, supported thinking levels, price metadata, and the current parent model/thinking state. It must not rank models, recommend role-to-model mappings, or implement workflow policy.
+`workflow_models` is a live **fact surface only**. It may expose available model IDs, context/modality, reasoning capability, supported thinking levels, price metadata, the current parent model/thinking state, and each workflow role's declarative `workflowPreferredModel`. It must not rank models, decide whether a preference is sufficient, or implement workflow policy.
 
-Use Pi/pi-subagents native model resolution. Native precedence is per-run override → agent frontmatter `model` → `subagents.agentOverrides.<name>.model` → `subagents.defaultModel` → parent session model.
+`workflowPreferredModel` is workflow-only preference metadata. It is deliberately not Pi/pi-subagents native `model:` frontmatter and does not participate automatically in native model resolution. The activated parent evaluates it under the Job Lease before launch.
 
-- A role may use native `model:` as its normal default when a stable role default is actually desired; the parent may still override it per run.
-- A role with no `model:` does not dynamically select a model by itself. When model choice matters, the activated workflow parent selects it from live facts and passes a per-run override.
-- Model and reasoning are separate decisions. Do not statically assign one thinking level to a workflow role merely because it is an auditor or implementer. Choose the lowest sufficient supported effort for the current Job Lease.
-- Native `fallbackModels` are for provider/runtime failures such as quota, rate limit, auth, timeout, overload, or unavailable model. They are not semantic capability escalation.
+For each delegated workflow job, select the concrete model in this order:
 
-Before a delegated workflow turn, keep the user-visible job/model/reasoning/rationale notice required by `global-workflow.md` when that requirement applies.
+1. an explicit user model instruction for that job;
+2. that role's `workflowPreferredModel`, when it is currently available and capability-sufficient and does not violate a workflow requirement such as T2 model diversity, modality/context needs, or an independence constraint;
+3. otherwise, dynamic selection from current live model facts using the workflow's capability, risk, evidence, and cost criteria.
+
+When bypassing an available `workflowPreferredModel`, state the concrete reason. Availability alone is not capability sufficiency, and a declared preference is never a waiver of workflow requirements.
+
+Once the parent has selected a model, pass that concrete model as a per-run override for the child. Do not leave an activated workflow child to implicit parent-model inheritance or describe the selected model only as `inherit`, `default`, or `parent`. This keeps the semantic model choice explicit while still using Pi's native execution path.
+
+Model and reasoning are separate decisions. Choose the lowest sufficient supported reasoning level for the current Job Lease rather than pinning one level by role. For workflowScript paths that encode thinking in the model string, use the selected concrete model-with-thinking form supported by Pi.
+
+Native `fallbackModels` remain an operational provider/runtime fallback for quota, rate limit, authentication, timeout, overload, or unavailable model. They are not semantic capability escalation. If runtime fallback occurs, the actual model may differ from the selected model.
+
+Before every delegated workflow turn, show the user the bounded job/role, the **concrete selected provider/model**, the selected reasoning level, and the rationale. Never use only `parent inherited` or equivalent as the model disclosure.
+
+After the child completes, use Pi/pi-subagents runtime metadata to confirm the effective model and reasoning. Prefer effective metadata already returned by the runtime; otherwise inspect the native run status once. If `attemptedModels` shows fallback or the effective model differs from the selected model, disclose that change explicitly. The runtime's actual model/thinking identity is execution evidence; it does not replace semantic review.
 
 ## General repository rules
 
