@@ -19,7 +19,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const limit = params.limit ?? 20;
+      const limit = params.limit ?? 50;
       const offset = params.offset ?? 0;
       const search = params.search?.toLowerCase();
       const scoped = ctx.scopedModels.length > 0;
