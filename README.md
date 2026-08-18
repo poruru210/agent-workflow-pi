@@ -58,6 +58,8 @@ Once `/workflow` is activated, the workflow's own delegation-opportunity and exe
 
 If delegation overhead exceeds its risk-adjusted benefit, the parent works directly. Parent-direct implementation does not waive independent T1/T2 evidence when the workflow requires it.
 
+For a non-trivial exploration or implementation phase, parent-direct is not selected from an unexpanded intuition that the parent is faster. The parent first names at least one ready bounded worker package and compares it against direct work: instruction/lease cost, launch/wait cost, shared-state coordination, integration/reverification, expected wall-clock effect, and quality/risk benefit. If the implementation materially expands in file count, responsibility boundaries, expected duration, blockers, or independent packages, that checkpoint is run again. This makes the decision observable without turning subagent count into a quota.
+
 ## Semantic source of truth
 
 After explicit activation, `workflow/global-workflow.md` remains authoritative for objectives, work definition, risk, baseline, C0, T0/T1/T2, RC/VER/TEST-RC/INT/CHG/CONT, U0/U1, implementation snapshots, release-candidate identity, evidence dependencies, audits, convergence, external-write readiness, and completion.
@@ -162,7 +164,8 @@ execution                    → native Pi/pi-subagents
 - supported thinking levels;
 - price metadata from the live registry;
 - current parent model/thinking state;
-- each workflow role's ordered `workflowPreferredModels`, including priority and current availability.
+- ordered session model scope, when configured, including its priority;
+- each workflow role's ordered `workflowPreferredModels`, including role priority, current availability, and matching session priority when present.
 
 For compatibility, the extension also normalizes the legacy scalar `workflowPreferredModel` into the same ordered list representation.
 
@@ -172,7 +175,7 @@ For compatibility, the extension also normalizes the legacy scalar `workflowPref
 
 Before each delegated workflow turn, the user should see the bounded job/role, the **concrete selected provider/model**, the selected reasoning level, and the selection rationale. `parent inherited`, `default`, or equivalent is not sufficient disclosure.
 
-After completion, use the effective model/thinking information already returned by `pi-subagents`, or inspect native run status once when needed. `pi-subagents@0.50.0` stores effective `model`, `thinking`, and `attemptedModels` in run status. If operational fallback changes the effective model, disclose that change.
+After every delegated turn reaches a terminal state, report five fields: **selected model, selected reasoning, effective model, effective reasoning, and fallback status**. Use effective metadata already returned by `pi-subagents`, or inspect native run status once. `pi-subagents@0.50.0` exposes/stores runtime `model`, `thinking`, and `attemptedModels`; those values take precedence over inference from a successful launch or the absence of mismatch notifications. If effective reasoning is still not exposed after one status inspection, report `effective reasoning: UNPROVEN` while retaining the accepted selected reasoning as a separate fact. If fallback or another effective value differs from the selected value, disclose it explicitly.
 
 Native `fallbackModels` remain only for provider/runtime failures such as quota, rate limit, authentication, timeout, overload, or unavailable model. They are not the semantic preference mechanism and do not replace parent capability judgment.
 
@@ -213,4 +216,4 @@ Use `pi-subagents/preflight` only when exact resolved launch-contract details ar
    └─ global-workflow.md             # normative only after explicit activation
 ```
 
-`settings.json` pins `pi-mcp-adapter@2.26.0` and `pi-subagents@0.50.0`. Upgrading those dependencies should trigger a targeted recheck of the native seams this repository relies on.
+`settings.json` pins `pi-mcp-adapter@2.26.0`, `pi-subagents@0.50.0`, and `pi-effort` at Git commit `06183a6276d98ac039e52678273e9f8342552f9c`. Upgrading any of those dependencies should trigger a targeted recheck of the native seams this repository relies on.
