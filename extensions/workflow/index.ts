@@ -1,6 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
 export default function workflowModelCatalog(pi: ExtensionAPI) {
   pi.registerTool({
     name: "workflow_models",
@@ -37,16 +39,31 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
         .filter((model) => !params.minContextWindow || model.contextWindow >= params.minContextWindow)
         .filter((model) => params.reasoning === undefined || model.reasoning === params.reasoning)
         .filter((model) => params.image === undefined || model.input.includes("image") === params.image)
-        .map((model) => ({
-          key: `${model.provider}/${model.id}`,
-          name: model.name,
-          contextWindow: model.contextWindow,
-          maxTokens: model.maxTokens,
-          reasoning: model.reasoning,
-          input: model.input,
-          scopedThinkingLevel: scopedThinking.get(`${model.provider}/${model.id}`),
-          costPerMillionTokens: model.cost,
-        }))
+        .map((model) => {
+          const supportedThinkingLevels = model.reasoning === false
+            ? ["off"]
+            : !model.thinkingLevelMap
+              ? THINKING_LEVELS.filter((level) => level !== "max")
+              : THINKING_LEVELS.filter((level) => {
+                  const mapped = model.thinkingLevelMap?.[level];
+                  if (mapped === null) return false;
+                  if (level === "xhigh" || level === "max") return mapped !== undefined;
+                  return true;
+                });
+
+          return {
+            key: `${model.provider}/${model.id}`,
+            name: model.name,
+            contextWindow: model.contextWindow,
+            maxTokens: model.maxTokens,
+            reasoning: model.reasoning,
+            supportedThinkingLevels,
+            thinkingLevelMap: model.thinkingLevelMap,
+            input: model.input,
+            scopedThinkingLevel: scopedThinking.get(`${model.provider}/${model.id}`),
+            costPerMillionTokens: model.cost,
+          };
+        })
         .sort((a, b) => a.key.localeCompare(b.key));
 
       const page = catalog.slice(offset, offset + limit);
