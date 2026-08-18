@@ -1,28 +1,44 @@
-## Mandatory workflow bootstrap
+# Pi project guidance
 
-`~/.pi/agent/workflow/global-workflow.md` is the sole normative semantic workflow. Preserve its objectives, phase ordering, gates, evidence semantics, execution-versus-verification allocation, independent-refutation requirements, correction/convergence rules, and completion conditions. The original workflow was expressed for a less extensible harness; Codex-specific mechanism wording is not itself normative on Pi. Replace mechanisms where Pi provides a better native mechanism, but do not weaken or silently reinterpret the workflow semantics.
+This repository provides an optional engineering workflow for Pi. Normal Pi interactions must remain normal Pi interactions.
 
-A task may use the compact branch without loading the detailed workflow only when it is short, single-purpose, read-only, low-risk, needs no implementation or state change, diagnostic/test execution, formal audit, delegation, correction cycle, release/operation decision, or persistent checkpoint; does not materially drive an external action or other high-impact decision; does not depend on volatile identity/freshness; and a wrong answer cannot cause material harm. Record only `objective/question, target/source, source time or version, allowed scope, answer and limits`. If any condition is false or uncertain, enter the normal workflow before the substantive phase that depends on it.
+## Workflow activation
 
-For the normal workflow, inspect the heading index once and then load the sections applicable to the current work type and current gate. At entry, load enough of the core sections to settle objective, risk, work definition, execution allocation, evidence route, and delegation policy. Before a candidate-bearing change, load the applicable work-type route, baseline requirements, and referenced change/readiness gates. Load test, snapshot, audit, external-action, correction/convergence, and completion sections before those phases are entered. Section-scoped loading is only a Pi context optimization: an unread applicable rule is not waived, and no summary or runtime binding replaces the detailed workflow.
+`workflow/global-workflow.md` is **not ambient policy**. Apply it only when the user explicitly activates the workflow, normally through the project prompt command `/workflow`.
 
-Higher-priority instructions and more specific applicable project instructions still control scope and authority.
+Do not automatically enter workflow mode because a task is difficult, involves code, appears risky, or could benefit from subagents. Explicit activation is the boundary.
 
-## Pi runtime binding
+Once activated, `workflow/global-workflow.md` is the sole normative semantic workflow for that request. Preserve its objectives, phase ordering, gates, evidence semantics, execution-versus-verification allocation, independent-refutation requirements, correction/convergence rules, and completion conditions. Higher-priority instructions and more specific applicable project instructions still control scope and authority.
 
-This section maps the workflow onto Pi. It supplies mechanisms and runtime facts; it does not define a second workflow policy.
+Workflow activation and subagent delegation are separate decisions. An activated workflow may be executed directly by the parent when its delegation gate says that is more efficient. Conversely, parent-direct implementation does not waive any independent T1/T2 evidence that the activated workflow requires.
 
-- The current Pi session is the workflow parent/orchestrator. Delegated execution uses the installed `pi-subagents` package directly. Do not recreate child execution, workflowScript scheduling, lifecycle, cancellation, acceptance machinery, usage accounting, session handling, or recovery in this repository.
-- Delegation does not require a separate user request for a subagent when the user has already authorized the underlying operation. A child receives no broader authority than the parent.
-- Map workflow roles to the configured Pi roles when those roles are needed: research → `workflow-researcher`; implementation → `workflow-implementer`; blind root-cause challenge → `root-cause-reviewer`; early audit → `early-auditor`; authorized verification partitions → `workflow-tester`; final audit → `final-auditor`; external-write pre-action audit → `pre-action-auditor`. Use another native role only when it better satisfies the same bounded Job Lease without weakening its independence or authority boundary.
-- Every delegated turn receives the bounded Job Lease required by `global-workflow.md`. Custom workflow roles intentionally use fresh/minimal child context and do not inherit the global workflow; therefore project-specific constraints and the exact claims, evidence, scope, authority, and stopping conditions needed by the child must be carried by the Job Lease or explicit reads.
-- Apply the original workflow's delegation-opportunity checkpoint and execution-allocation rules at the phase boundaries defined there. Pi-specific catalog/discovery calls provide facts for that decision; they do not replace the workflow's benefit-versus-cost judgment. A parent-direct implementation remains valid when the original gate says its risk-adjusted total cost is lower, and worker use is not a quota.
-- `workflow_models` is the Pi-native fact surface for live model availability, context/modality, supported thinking levels, price metadata, the current parent model, and optional per-agent `workflowPreferredModel` metadata read from `agents/*.md`. Load the availability-wide catalog once per parent session when those facts can affect a delegation/model decision and reuse it until registry/session scope or an agent definition materially changes.
-- Model selection precedence is: an explicit user instruction for the job; then that agent definition's `workflowPreferredModel` when present, currently available, and capability-sufficient for the Job Lease; otherwise dynamic selection under the model/reasoning gate in `global-workflow.md`. `workflowPreferredModel` is a preference, not pi-subagents' native `model` pin and not a capability waiver. It may be bypassed for concrete capability, modality/context, availability, T2/diversity, or other workflow-mandated reasons; state the concrete reason when bypassing it. If the field is absent, model selection for that role is fully dynamic.
-- Thinking/effort is never pinned by `workflowPreferredModel` and is not statically assigned by role. For every delegated job, choose the lowest sufficient reasoning level dynamically from the selected model's live `supportedThinkingLevels`, using the workflow's ambiguity, depth, harm, evidence, and verification criteria. A model change triggers a fresh effort decision rather than carrying over an unsupported or arbitrary level.
-- Before each subagent launch, keep the workflow-required user-visible job/model/reasoning/rationale notice. Use the effective metadata returned by the runtime when available; runtime launch success is execution evidence, not semantic PASS.
-- Independent review jobs use fresh child context unless the detailed workflow explicitly permits same-job continuation. For a read-only review/audit whose result is consumed immediately by the parent and no later stage needs a durable named child output, set the workflow child `output:false` and consume the inline result; keep normal pi-subagents debug/lifecycle artifacts. Use durable output only when a later stage genuinely needs a stable file reference.
-- When one required child gates the next step and the parent has no useful independent work, foreground execution is appropriate; use background execution only when detachment or real concurrency has critical-path value. Follow the installed pi-subagents skill's matching-reference requirement and do not reread unchanged package references in the same parent session.
-- When identity crosses Git objects and Windows working-tree bytes, record the representation being compared. Compare hashes within the same representation or normalize line endings explicitly; an LF/CRLF-only byte mismatch is not by itself a semantic candidate change.
-- If exact child launch-contract resolution becomes decision-bearing, prefer the public `pi-subagents/preflight` API from extension code. If an extension ever needs to launch a child itself, prefer the public structured `pi-subagents/delegation` API. Do not add a custom launcher or workflow state machine merely to duplicate those native seams.
-- `global-workflow.md` decides whether delegation, T0/T1/T2, early audit, final audit, testing, correction, evidence reuse, or completion is required. Pi runtime status and helper tools provide mechanism and facts only.
+## Pi runtime binding for activated workflow requests
+
+Use the installed `pi-subagents` package directly for runtime mechanics. Do not recreate child execution, `workflowScript` scheduling, lifecycle, cancellation, acceptance, usage accounting, session handling, worktree handling, missions, or recovery in this repository.
+
+- The current Pi session is the workflow parent/orchestrator and remains the semantic decision authority.
+- Map workflow roles when needed: research → `workflow-researcher`; implementation → `workflow-implementer`; blind root-cause challenge → `root-cause-reviewer`; early audit → `early-auditor`; authorized verification partitions → `workflow-tester`; final audit → `final-auditor`; external-write pre-action audit → `pre-action-auditor`.
+- Every delegated job receives the bounded Job Lease required by `global-workflow.md`. Custom roles use fresh/minimal child context, so the lease or explicit reads must carry the exact objective, claims, evidence, scope, authority, identity, and stopping conditions needed by that child.
+- Use `workflowScript` only for the bounded execution wave the parent has already decided is appropriate. Do not compile the semantic workflow into a custom runtime state machine or an automatic review/fix loop.
+- Use retained `resume` only when the same bounded job, role, target identity, capability requirement, and independence assumptions still hold. Spawn fresh for a new role, blind-first review, material identity change, or changed capability/independence requirement.
+- Use native managed worktrees for writer isolation when useful. A worktree is not the workflow's implementation-snapshot or release-candidate semantic identity.
+- Use native acceptance and host `gate` commands as deterministic evidence where appropriate. Runtime `verified`/`reviewed` status is evidence for the parent; it does not itself establish C0, T1/T2 closure, change-safety closure, or release PASS.
+- Use missions/state for durable run linkage, artifacts, receipts, decisions, usage, and small recovery checkpoints. They are not the semantic workflow engine.
+- If exact child launch resolution is genuinely decision-bearing, use public `pi-subagents/preflight`. If extension-owned child launch is ever genuinely required, use public `pi-subagents/delegation`. Do not add another launcher.
+
+## Model and reasoning
+
+`workflow_models` is a live **fact surface only**. It may expose available model IDs, context/modality, reasoning capability, supported thinking levels, price metadata, and the current parent model/thinking state. It must not rank models, recommend role-to-model mappings, or implement workflow policy.
+
+Use Pi/pi-subagents native model resolution. Native precedence is per-run override → agent frontmatter `model` → `subagents.agentOverrides.<name>.model` → `subagents.defaultModel` → parent session model.
+
+- A role may use native `model:` as its normal default when a stable role default is actually desired; the parent may still override it per run.
+- A role with no `model:` does not dynamically select a model by itself. When model choice matters, the activated workflow parent selects it from live facts and passes a per-run override.
+- Model and reasoning are separate decisions. Do not statically assign one thinking level to a workflow role merely because it is an auditor or implementer. Choose the lowest sufficient supported effort for the current Job Lease.
+- Native `fallbackModels` are for provider/runtime failures such as quota, rate limit, auth, timeout, overload, or unavailable model. They are not semantic capability escalation.
+
+Before a delegated workflow turn, keep the user-visible job/model/reasoning/rationale notice required by `global-workflow.md` when that requirement applies.
+
+## General repository rules
+
+Keep workflow-specific agent prompts small and role-specific. Do not copy the global workflow into every child prompt. Prefer current source and exact artifacts over summaries when they conflict. Do not add abstractions merely to mirror features already provided by Pi or `pi-subagents`.
