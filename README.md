@@ -1,91 +1,152 @@
 # agent-workflow-pi
 
-Personal Pi configuration. This repository is intended to be the Pi agent directory itself (`~/.pi/agent`).
+Personal Pi configuration intended to live as the Pi agent directory (`~/.pi/agent`).
 
-## Design principle
+The repository provides an **opt-in, evidence-driven engineering workflow** on top of Pi and `pi-subagents`.
 
-The workflow came from a Codex-oriented implementation where most control had to be expressed through `AGENTS.md` and a large Markdown workflow because the harness itself could not be changed. On Pi, that implementation mechanism is not sacred.
+## Core design
 
-What remains authoritative is the **workflow semantics** in `workflow/global-workflow.md`: objectives, work-definition and baseline rules, phase ordering, delegation gates, execution-versus-verification allocation, T0/T1/T2 evidence routes, blind-first independence, snapshot/release-candidate identity, early/final/pre-action audit semantics, correction/convergence behavior, and completion conditions. Pi-specific mechanisms may replace Codex-specific mechanisms only when those semantics remain intact.
+The original workflow came from a less extensible harness, so much of its orchestration had to be expressed as prompt policy. On Pi, the mechanism should be simpler while preserving the workflow semantics.
+
+The final responsibility split is:
 
 ```text
+explicit /workflow activation
+        │
+        ▼
 workflow/global-workflow.md
-  normative workflow semantics
-             │
-             ▼
-AGENTS.md
-  thin Pi bootstrap + semantic-to-runtime mapping
-             │
-             ├───────────────┐
-             ▼               ▼
-extensions/workflow       pi-subagents
-  runtime facts            child runtime
-  model preference         workflowScript / runs
-  live model catalog       lifecycle / artifacts
-             │               │
-             └───────┬───────┘
-                     ▼
-                  child Pi
+  semantic source of truth
+        │
+        ▼
+current parent Pi
+  objective / risk / phase / evidence judgment
+  direct-vs-delegate decision
+  model + reasoning selection
+  Job Lease construction
+  evidence integration
+  Go / No-Go
+        │
+        ├─────────────────────────────┐
+        ▼                             ▼
+ parent-direct execution         pi-subagents
+                             workflowScript / runs
+                             agents / worktrees
+                             missions / artifacts
+                             acceptance / lifecycle
+                             resume / supervisor
+        │                             │
+        └──────────────┬──────────────┘
+                       ▼
+                parent semantic gate
 ```
 
-The goal is **not** to translate the workflow into a TypeScript state machine. Judgment-bearing gates such as delegation value, risk, T0/T1/T2, materiality, evidence sufficiency, and Go/No-Go remain in the workflow. Pi/SDK code is used for deterministic runtime facts and native execution boundaries.
+The repository does **not** implement a second workflow engine around Pi.
 
-## Responsibility boundary
+## Explicit activation
 
-### `workflow/global-workflow.md`
+`workflow/global-workflow.md` is not ambient policy for every Pi interaction.
 
-The sole detailed source of truth for workflow semantics. It is deliberately not rewritten as a Pi-specific workflow engine.
+Normal Pi use remains normal Pi use. The engineering workflow is activated explicitly with the Pi prompt template:
 
-### `AGENTS.md`
-
-Only the bootstrap and Pi runtime mapping. It tells the parent how semantic concepts map onto Pi mechanisms and how to load the detailed workflow by phase. It must not accumulate duplicate copies of workflow policy to fix individual E2E symptoms.
-
-### `extensions/workflow/index.ts`
-
-A small Pi-native runtime adapter, not an orchestrator. It currently does two things:
-
-1. exposes `workflow_models`, which returns live model/capability/thinking/price facts plus the current parent model and configured preferred subagent model;
-2. injects the configured preferred subagent model into the parent system prompt as a runtime preference.
-
-It does not decide delegation, audit requirements, evidence routes, or completion.
-
-### `pi-subagents`
-
-Owns child discovery, native `workflowScript` execution, one-child and multi-child scheduling, lifecycle, artifacts, model overrides, recovery, acceptance machinery, and usage reporting. This repository does not wrap those mechanics.
-
-If a future deterministic integration needs the exact resolved child contract, use the public `pi-subagents/preflight` API. If an extension itself ever needs to launch a child, use the public structured `pi-subagents/delegation` API rather than introducing a custom launcher. Those APIs are preferred seams, but are not added merely because they exist.
-
-## Runtime model preference
-
-`workflow/runtime.json` may contain:
-
-```json
-{
-  "preferredSubagentModel": "openai-codex/gpt-5.6-luna"
-}
+```text
+/workflow <request>
 ```
 
-Semantics:
+`prompts/workflow.md` expands into a prompt for the **current parent Pi**. It tells that parent to apply `workflow/global-workflow.md` to the supplied request. It does not itself launch a subagent.
 
-- an explicit user instruction for a particular job wins;
-- otherwise, the configured preferred model is preferred when it is available and capability-sufficient for that Job Lease;
-- the preference may be bypassed for concrete capability, modality/context, availability, T2/diversity, or other workflow-mandated reasons;
-- if the setting is absent or null, subagent model selection is fully dynamic;
-- the preferred model is **not** a fixed intelligence ranking and does not weaken minimum capability requirements.
+Do not add heuristics that automatically activate the workflow because a task is difficult, involves code, looks risky, or appears to benefit from delegation. Explicit user activation is the boundary.
 
-The current personal preference is `openai-codex/gpt-5.6-luna` so well-bounded jobs do not drift to unfamiliar models merely because they appear in the catalog.
+### Activation is not delegation
 
-### Thinking / effort
+Once `/workflow` is activated, the workflow's own delegation-opportunity and execution-allocation gates decide how work is performed.
 
-Thinking is always a separate per-job decision. No role or preferred model pins a permanent effort level. `workflow_models` reports each model's live `supportedThinkingLevels`; the parent chooses the lowest sufficient level for the current Job Lease under the model/reasoning gate in `global-workflow.md`.
+A valid activated run may therefore use:
 
-Therefore a selected model change causes a fresh effort decision. A requested `medium` is not blindly carried onto a model that only exposes `low/high/max`, and a model that supports broader effort levels is not permanently stuck at one level.
+- parent-direct execution only;
+- one delegated child;
+- parallel delegated children;
+- a mixture of direct and delegated work where the phases are independent and the workflow permits it.
 
-## Delegation
+If delegation overhead exceeds its expected risk-adjusted benefit, the parent performs the work directly while still following the activated workflow's objective, evidence, phase, and completion rules.
 
-The parent uses the installed `subagent` tool directly. There is no workflow-specific delegation facade.
+Conversely, parent-direct implementation does not waive independent evidence. If the workflow requires T1/T2 independent review, a separate independent reviewer or mechanism is still required.
 
-Configured semantic roles are:
+## Semantic source of truth
+
+`workflow/global-workflow.md` remains the detailed semantic policy after explicit activation. It owns concepts such as:
+
+- primary objective, minimum required outcome, and prohibited substitute outcomes;
+- work definition, scope, authority, and preservation constraints;
+- risk classification and baseline applicability;
+- C0 acceptance-set completeness;
+- result key and independent-refutation key;
+- T0 / T1 / T2 Evidence Route and R/F/C/E/D/O risk vectors;
+- root-cause (`RC`) and verification-escape (`VER`) reasoning;
+- test-system root cause (`TEST-RC`);
+- intervention (`INT`), change-safety (`CHG`), and continuity (`CONT`) packets;
+- U0 / U1 verification populations and test-intervention history;
+- implementation snapshot and release-candidate semantics;
+- Evidence Dependency Map and evidence reuse;
+- early audit, final audit, and pre-action audit semantics;
+- finding reachability, change causation, materiality, and harm classification;
+- correction/convergence and audit/test re-entry;
+- external-write readiness, freshness, post-action verification, and recovery;
+- completion and Go / No-Go.
+
+These are semantic/evidence concepts. They are not converted into TypeScript classes or a custom phase state machine merely because they have names and transitions in the policy.
+
+## `AGENTS.md`
+
+`AGENTS.md` is intentionally thin.
+
+It defines only stable Pi-side binding rules and the explicit activation boundary. It no longer mandates `global-workflow.md` for every Pi task.
+
+It also records the key rule that workflow activation and delegation are separate decisions.
+
+## Pi runtime mechanics
+
+The installed `pi-subagents` package owns runtime mechanics:
+
+- agent discovery and precedence;
+- `workflowScript`, `runs.run`, and `runs.all`;
+- sequential and parallel child execution;
+- child lifecycle, status, wait, interrupt, stop, and retained resume;
+- managed worktree isolation and handoff artifacts;
+- missions, run linkage, artifacts, receipts, and usage records;
+- acceptance checks and host-side verification commands;
+- supervisor communication;
+- native model resolution and per-run overrides;
+- provider/runtime fallback handling.
+
+This repository must not add a custom launcher, scheduler, lifecycle manager, mission clone, worktree manager, acceptance engine, or workflow state machine around those functions.
+
+### `workflowScript`
+
+`workflowScript` is execution machinery for a bounded child wave, not the semantic workflow itself.
+
+The parent first decides the current phase/gate. It then launches only the child work needed for that phase. A giant script that automatically loops through implementation, review, repair, test, and release until it sees PASS would bypass semantic correction/convergence decisions and is therefore not the target design.
+
+## Job Lease and child identity
+
+Every delegated workflow job receives a bounded Job Lease containing the decision-bearing information needed by that child, such as:
+
+- objective / acceptance IDs;
+- phase and role;
+- exact target / snapshot / evidence identity;
+- scope, exclusions, and authority;
+- expected output and evidence;
+- Evidence Route / risk vector where relevant;
+- selected model/reasoning configuration;
+- stopping and escalation conditions;
+- parent integration method.
+
+Use retained `resume` only when the same bounded job remains valid: same purpose, role, target identity, scope, capability requirement, and independence assumptions.
+
+Spawn a fresh child when those semantics change, including implementation → audit, diagnosis → correction, early → final audit, a new blind-first challenge, materially changed target identity, changed independence requirement, or changed capability contract.
+
+## Workflow-specific roles
+
+The configured roles are native Pi agent definitions, not runtime subsystems:
 
 - `workflow-researcher`
 - `workflow-implementer`
@@ -95,57 +156,121 @@ Configured semantic roles are:
 - `final-auditor`
 - `pre-action-auditor`
 
-These are **role contracts**, not copies of the workflow. The exact claims, scope, evidence, authority, identity, risk vectors, and stopping conditions come from the Job Lease created by the parent under `global-workflow.md`.
+Their prompts remain small and role-specific. They do not contain copies of the global workflow. Concrete objective, evidence, scope, identity, authority, and stopping conditions come from the Job Lease.
 
-Custom roles use fresh/minimal context and do not recursively inherit the global workflow. This preserves independence and prevents child sessions from reinterpreting the entire parent policy. Project-specific constraints required by a child must therefore be carried in the Job Lease or supplied as explicit reads.
+These custom roles intentionally use fresh/minimal context where boundedness or independence matters.
 
-A parent-direct implementation is valid when the original delegation-opportunity gate says delegation overhead exceeds its benefit. A writer child is valid when the same gate says it provides positive risk-adjusted value. Worker count is never a quota.
+## Model and reasoning selection
 
-## Review output and artifacts
+Model policy remains a parent semantic decision. Model resolution/execution uses Pi and `pi-subagents` native mechanisms.
 
-Read-only audit roles still use `bash` for bounded Git/hash/code inspection, so pi-subagents considers them mutation-capable for output handling. For an audit result consumed immediately by the parent, launch the child with `output:false`; the inline result is consumed directly while normal lifecycle/debug artifacts remain enabled. Durable named output is used only when a later stage genuinely needs a stable file reference.
+Native precedence is:
 
-This is a Pi runtime workaround for the observed Windows output-path issue, not a workflow semantic rule.
+```text
+per-run override
+    ↓
+agent frontmatter model
+    ↓
+subagents.agentOverrides.<name>.model
+    ↓
+subagents.defaultModel
+    ↓
+parent session model
+```
+
+A role may use native `model:` as a normal default when a stable role default is actually desired. Per-run override still wins.
+
+A role with no `model:` does not dynamically select the best model by itself; it eventually inherits a configured/default/parent model. When the activated workflow needs an explicit capability choice, the parent selects from current live facts and supplies a per-run override.
+
+Model and reasoning are separate decisions. Workflow roles do not statically pin one thinking level just because they are auditors or implementers. The parent chooses the lowest sufficient supported effort for the current Job Lease.
+
+Native `fallbackModels` are for provider/runtime failures such as quota, rate limit, authentication, timeout, overload, or unavailable model. They are not a semantic escalation mechanism for a weak or incorrect result.
+
+## `workflow_models`
+
+`extensions/workflow/index.ts` exposes one deliberately small custom tool: `workflow_models`.
+
+Its purpose is only to expose **live model facts** that are useful to the activated parent workflow and are not otherwise available in one comparable catalog.
+
+It may report:
+
+- available provider/model IDs;
+- context window and maximum output metadata;
+- input modality;
+- reasoning capability;
+- supported thinking levels derived using Pi/pi-subagents-compatible registry semantics;
+- price metadata from the live registry;
+- current parent model / thinking state.
+
+It does **not**:
+
+- implement `workflowPreferredModel`;
+- scan role files for custom model preferences;
+- rank model quality;
+- map roles to models;
+- infer intelligence from model names such as mini/flash/pro;
+- decide delegation;
+- decide semantic fallback or escalation.
+
+The parent consumes facts and applies the activated workflow's model/reasoning gate.
+
+## Acceptance and deterministic evidence
+
+Use native acceptance and `gate` where they establish deterministic runtime facts economically.
+
+For example, a host-run test command passing against the tracked workspace is stronger evidence than a child merely claiming it ran the command.
+
+But:
+
+```text
+runtime verified/reviewed
+    ≠ C0 PASS
+    ≠ blind-first PASS
+    ≠ T1/T2 semantic closure
+    ≠ change-safety closure
+    ≠ release PASS
+```
+
+Acceptance status is evidence consumed by the parent; it does not replace the workflow's semantic gates.
+
+## Missions and state
+
+Missions are durable recovery/receipt records rather than the semantic workflow engine.
+
+Use native mission/state facilities for run identities, lifecycle, artifacts, decisions, receipts, usage, recovery after restart/compaction, and small durable checkpoints where useful.
+
+Do not mirror the entire semantic workflow into a second persistent state machine.
+
+## Worktrees and snapshots
+
+Managed worktrees solve writer isolation and patch handoff. They are not equivalent to the workflow's implementation snapshot or release candidate.
+
+Workflow snapshot identity can include source/worktree state, configuration, dependencies, toolchain inputs, generated artifacts, package/runtime/environment identity, work-definition version, and evidence identity. The parent decides when those semantics are sufficiently fixed.
+
+## Public pi-subagents seams
+
+Use `pi-subagents/preflight` only when exact resolved child launch-contract details are genuinely decision-bearing.
+
+Use `pi-subagents/delegation` only if a custom extension truly needs to own a child launch. Normal activated workflow execution should use the ordinary `subagent` / `workflowScript` path instead.
+
+Neither API is a reason to add another workflow runtime.
 
 ## Code search
 
-`pi-mcp-adapter` exposes MCP to the parent; the initial server is Semble. Child roles may use Semble CLI through bounded `bash` where semantic discovery is actually necessary. Grep remains appropriate for exhaustive literal coverage.
+`pi-mcp-adapter` exposes configured MCP tools to the parent; this repository currently configures Semble. Workflow roles can also use bounded read-only CLI discovery where their role permits it.
 
-Do not add another search abstraction unless representative tasks show a real gap.
-
-## Pi SDK usage rule
-
-Use Pi/SDK mechanisms when they can make a **deterministic runtime fact or boundary** more reliable or cheaper than prompt prose. Examples include:
-
-- live model registry and supported thinking levels;
-- user runtime preference injection via `before_agent_start`;
-- child launch-contract resolution through `pi-subagents/preflight` when decision-bearing;
-- structured extension-to-child delegation through `pi-subagents/delegation` if an extension truly needs to own a launch;
-- Pi lifecycle/tool hooks when a concrete, repeated failure shows that prompt-only enforcement is insufficient.
-
-Do **not** use SDK hooks merely to duplicate semantic judgment already defined by the workflow. In particular, avoid a custom phase engine, delegation quota, model-performance database, permission subsystem, or mutation watchdog unless a measured representative gap justifies it.
-
-## Validation philosophy
-
-Evaluate the Pi port against the original workflow semantics, not against the original Codex implementation technique.
-
-A change is good only when it preserves required outcome/acceptance quality and workflow assurance while improving or maintaining risk-adjusted total cost, convergence, diagnosability, and independence. Passing one E2E is not proof of general superiority.
-
-When an E2E exposes a problem, diagnose in this order:
-
-1. Did the behavior violate the original workflow semantics?
-2. If yes, is the cause missing/ambiguous semantic policy, or failure to map/enforce an existing rule on Pi?
-3. If the semantic rule already exists, prefer a Pi-native mapping/runtime fix rather than duplicating the rule in `AGENTS.md`.
-4. Add an SDK/runtime mechanism only when it closes a concrete gap more cleanly than native Pi/pi-subagents behavior.
-5. Re-test the affected representative path, then stop once the decision-bearing gap is closed.
+Do not add another search abstraction unless representative work demonstrates a real gap.
 
 ## Layout
 
 ```text
 .
-├─ AGENTS.md
+├─ AGENTS.md                         # thin normal-Pi guidance; no ambient workflow
+├─ README.md
 ├─ settings.json
 ├─ mcp.json
+├─ prompts/
+│  └─ workflow.md                    # explicit /workflow activation
 ├─ agents/
 │  ├─ workflow-researcher.md
 │  ├─ workflow-implementer.md
@@ -156,10 +281,9 @@ When an E2E exposes a problem, diagnose in this order:
 │  └─ pre-action-auditor.md
 ├─ extensions/
 │  ├─ subagent/config.json
-│  └─ workflow/index.ts
+│  └─ workflow/index.ts              # workflow_models live facts only
 └─ workflow/
-   ├─ global-workflow.md
-   └─ runtime.json
+   └─ global-workflow.md             # normative only after explicit activation
 ```
 
-`settings.json` pins `pi-mcp-adapter@2.26.0` and `pi-subagents@0.50.0`. Pi credentials, sessions, package caches, and runtime state are ignored by Git.
+`settings.json` currently pins `pi-mcp-adapter@2.26.0` and `pi-subagents@0.50.0`. The Pi binding in this repository is designed against the installed `pi-subagents@0.50.0` behavior; upgrading that package should trigger a targeted recheck of the native seams this repository relies on.
