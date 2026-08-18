@@ -8,7 +8,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect the live Pi model catalog for delegation/model-selection decisions. Returns availability/capability/price metadata only; it does not delegate or rank model quality. For availability-wide comparison, load the catalog once per parent session, prefer limit=50, continue paging until hasMore=false, and reuse that result for later delegation decisions. Re-query only when the model registry/session scope may have materially changed, the selected model is rejected/unavailable, or required metadata was not captured.",
+      "Inspect the live Pi model catalog for delegation/model-selection decisions. Returns availability/capability/price metadata only; it does not rank model quality. For availability-wide comparison, load the catalog once per parent session, prefer limit=50, continue paging until hasMore=false, and reuse that result for later delegation decisions. Re-query only when the model registry/session scope may have materially changed, the selected model is rejected/unavailable, or required metadata was not captured. After capability sufficiency is fixed, use the returned numeric costPerMillionTokens fields for cost comparison when billing units are directly comparable; model names, mini/flash labels, provider, or family tier are not price evidence. Do not describe a candidate as cheaper while a sufficient same-billing-regime candidate numerically dominates its relevant input/output/cache rates.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
