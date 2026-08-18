@@ -1,6 +1,7 @@
 ---
 name: workflow-implementer
 description: Bounded implementation worker for an approved workflow change package.
+model: openai-codex/gpt-5.6-luna
 tools: read,bash,edit,write
 extensions:
 systemPromptMode: replace
