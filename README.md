@@ -56,6 +56,8 @@ Normal Pi use remains normal Pi use. The engineering workflow is activated expli
 
 Do not add heuristics that automatically activate the workflow because a task is difficult, involves code, looks risky, or appears to benefit from delegation. Explicit user activation is the boundary.
 
+Using Pi's native `subagent` capability outside an activated workflow is also just ordinary Pi usage; it does not implicitly enable this engineering workflow.
+
 ### Activation is not delegation
 
 Once `/workflow` is activated, the workflow's own delegation-opportunity and execution-allocation gates decide how work is performed.
