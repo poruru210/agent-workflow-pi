@@ -7,6 +7,14 @@ import { Type } from "typebox";
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const AGENTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "agents");
 
+// These are workflow-only preference hints for pi-subagents builtins that this
+// repository reuses directly. They do not modify the builtin agent, pin a model,
+// or participate in pi-subagents native model resolution.
+const BUILTIN_WORKFLOW_PREFERRED_MODELS: Record<string, string[]> = {
+  reviewer: ["openai-codex/gpt-5.6-luna"],
+  worker: ["openai-codex/gpt-5.6-luna"],
+};
+
 function unquoteScalar(value: string): string {
   const trimmed = value.trim();
   if (trimmed.length >= 2) {
@@ -29,9 +37,11 @@ function parseInlineList(value: string): string[] {
 }
 
 function loadWorkflowPreferredModels(): Record<string, string[]> {
-  if (!fs.existsSync(AGENTS_DIR)) return {};
+  const preferences: Record<string, string[]> = Object.fromEntries(
+    Object.entries(BUILTIN_WORKFLOW_PREFERRED_MODELS).map(([name, models]) => [name, [...models]]),
+  );
+  if (!fs.existsSync(AGENTS_DIR)) return preferences;
 
-  const preferences: Record<string, string[]> = {};
   for (const entry of fs.readdirSync(AGENTS_DIR, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
 
@@ -85,7 +95,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered declarative workflowPreferredModels metadata from workflow role definitions. Legacy scalar workflowPreferredModel is normalized to the same ordered list. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
+      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered declarative workflowPreferredModels metadata from custom workflow roles plus reused builtin runtime roles. Legacy scalar workflowPreferredModel is normalized to the same ordered list. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
