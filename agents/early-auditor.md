@@ -1,6 +1,7 @@
 ---
 name: early-auditor
 description: Read-only early auditor for a frozen implementation snapshot before behavioral tests.
+workflowPreferredModel: openai-codex/gpt-5.6-luna
 tools: read,bash
 extensions:
 systemPromptMode: replace
