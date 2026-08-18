@@ -1,14 +1,56 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+const AGENTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "agents");
+
+function unquoteScalar(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length >= 2) {
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return trimmed.slice(1, -1);
+    }
+  }
+  return trimmed;
+}
+
+function loadWorkflowPreferredModels(): Record<string, string> {
+  if (!fs.existsSync(AGENTS_DIR)) return {};
+
+  const preferences: Record<string, string> = {};
+  for (const entry of fs.readdirSync(AGENTS_DIR, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+
+    const text = fs.readFileSync(path.join(AGENTS_DIR, entry.name), "utf-8");
+    const frontmatter = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
+    if (!frontmatter) continue;
+
+    let name: string | undefined;
+    let preferredModel: string | undefined;
+    for (const line of frontmatter.split(/\r?\n/)) {
+      const field = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/);
+      if (!field) continue;
+      if (field[1] === "name") name = unquoteScalar(field[2]);
+      if (field[1] === "workflowPreferredModel") preferredModel = unquoteScalar(field[2]);
+    }
+
+    if (name && preferredModel) preferences[name] = preferredModel;
+  }
+
+  return preferences;
+}
 
 export default function workflowModelCatalog(pi: ExtensionAPI) {
   pi.registerTool({
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect live Pi model facts for an explicitly activated workflow. Returns availability, context/modality, supported thinking levels, price metadata, and the current parent model/thinking state. It does not rank model quality, recommend models for roles, or decide workflow policy.",
+      "Inspect live Pi model facts for an explicitly activated workflow. Returns availability, context/modality, supported thinking levels, price metadata, current parent model/thinking state, and declarative workflowPreferredModel metadata from workflow role definitions. It does not rank model quality, decide whether a preference is capability-sufficient, recommend models, or decide workflow policy.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -66,6 +108,13 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
         })
         .sort((a, b) => a.key.localeCompare(b.key));
 
+      const availability = new Set(available.map((model) => `${model.provider}/${model.id}`));
+      const workflowPreferredModels = Object.fromEntries(
+        Object.entries(loadWorkflowPreferredModels()).map(([agent, model]) => [
+          agent,
+          { model, available: availability.has(model) },
+        ]),
+      );
       const page = catalog.slice(offset, offset + limit);
       const hasMore = offset + page.length < catalog.length;
       const parentModel = ctx.model
@@ -79,6 +128,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
       const payload = {
         scope: scoped ? "session" : "all-available",
         parentModel,
+        workflowPreferredModels,
         total: catalog.length,
         offset,
         returned: page.length,
