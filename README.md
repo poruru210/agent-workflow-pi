@@ -17,25 +17,24 @@ workflow/global-workflow.md
         │
         ▼
 current parent Pi
-  objective / risk / phase / evidence judgment
-  direct-vs-delegate decision
+  objective / risk / architecture / evidence judgment
+  responsibility boundaries + change contract
+  work decomposition + Job Leases
   model + reasoning selection
-  Job Lease construction
   evidence integration
+  snapshot / release identity
   Go / No-Go
         │
-        ├─────────────────────────────┐
-        ▼                             ▼
- parent-direct execution         pi-subagents
-                             workflowScript / runs
-                             agents / worktrees
-                             missions / artifacts
-                             acceptance / lifecycle
-                             resume / supervisor
-        │                             │
-        └──────────────┬──────────────┘
-                       ▼
-                parent semantic gate
+        ├──────────────────────────────┐
+        ▼                              ▼
+ tiny/integration work           pi-subagents
+                           research / bounded implementation
+                           independent audits / verification
+                           worktrees / missions / artifacts
+        │                              │
+        └───────────────┬──────────────┘
+                        ▼
+                 parent integration gate
 ```
 
 ## Explicit activation
@@ -54,11 +53,19 @@ Using Pi's native `subagent` capability outside an activated workflow also does 
 
 ### Activation is not delegation
 
-Once `/workflow` is activated, the workflow's own delegation-opportunity and execution-allocation gates decide how work is performed. A valid run may use parent-direct execution, one child, parallel children, or a mixture where the workflow permits it.
+Activation still does not mean every task needs a child. Read-only questions, tiny mechanical edits, integration glue, conflict resolution, and similar work may remain parent-direct when appropriate.
 
-If delegation overhead exceeds its risk-adjusted benefit, the parent works directly. Parent-direct implementation does not waive independent T1/T2 evidence when the workflow requires it.
+For non-trivial candidate-bearing implementation, repair, or migration, however, the Pi runtime binding uses a different default: the parent acts as architect/orchestrator/integrator and delegates one coherent bounded write package to `workflow-implementer`. Runtime code, public types, focused tests, and documentation that belong to the same feature are normally kept together in that package. Tight coupling across those surfaces is not by itself a reason for the parent to implement them.
 
-For a non-trivial exploration or implementation phase, parent-direct is not selected from an unexpanded intuition that the parent is faster. The parent first names at least one ready bounded worker package and compares it against direct work: instruction/lease cost, launch/wait cost, shared-state coordination, integration/reverification, expected wall-clock effect, and quality/risk benefit. If the implementation materially expands in file count, responsibility boundaries, expected duration, blockers, or independent packages, that checkpoint is run again. This makes the decision observable without turning subagent count into a quota.
+Parent-direct candidate editing is therefore an exception rather than the ordinary route. It is appropriate for genuinely tiny/mechanical work, formatter-only corrections, narrow integration/conflict resolution, unavailable or inapplicable delegation, or when no coherent bounded writer lease can be formed without the parent effectively doing the same implementation work. This allocation rule is separate from T1/T2 independence; direct work never waives required independent evidence.
+
+### Parent / implementer boundary
+
+The parent retains whole-task decisions: user objective and acceptance conditions, risk and scope, architecture and responsibility boundaries, planned semantic delta, preservation contract, work decomposition, Job Leases, model/reasoning choice, result integration, snapshot/release identity, finding materiality, and Go/No-Go.
+
+`workflow-implementer` owns the implementation inside an approved lease. It should make ordinary local design choices itself—helper placement, internal flow, names, fixtures, focused tests, and coordinated runtime/type/doc edits—without turning the parent into a line-by-line coding supervisor. If implementation reveals that the frozen objective, architecture/responsibility boundary, semantic delta, preservation contract, scope, or authority must materially change, the child reports that design conflict instead of silently redesigning the task; the parent then decides whether to revise the design or issue a new lease.
+
+This is intentionally a responsibility split, not a delegation quota or scoring system.
 
 ## Semantic source of truth
 
@@ -81,13 +88,13 @@ The installed `pi-subagents` package owns runtime mechanics:
 - native model execution and per-run overrides;
 - operational provider/runtime fallback.
 
-This repository must not add a custom launcher, scheduler, lifecycle manager, mission clone, worktree manager, acceptance engine, or workflow state machine around those functions.
+This repository must not add a custom launcher, scheduler, lifecycle manager, mission clone, worktree manager, acceptance engine, delegation scorecard, or workflow state machine around those functions.
 
-`workflowScript` is bounded execution machinery. The parent decides the semantic phase before launching a wave; a giant automatic review/fix/test loop must not replace workflow convergence judgment.
+`workflowScript` is bounded execution machinery. The parent decides the semantic phase and work package before launching a wave; a giant automatic review/fix/test loop must not replace workflow convergence judgment.
 
 ## Job Lease and child identity
 
-Every delegated job receives a bounded Job Lease containing the decision-bearing information needed by that child: objective/acceptance IDs, phase and role, exact target/evidence identity, scope and authority, expected evidence, risk vector where relevant, selected model, stopping conditions, and parent integration method.
+Every delegated job receives a bounded Job Lease containing the decision-bearing information needed by that child: objective/acceptance IDs, phase and role, exact target/evidence identity, scope and authority, architecture/responsibility boundaries where relevant, planned semantic delta and preservation contract for candidate-bearing work, expected evidence, risk vector where relevant, selected model/reasoning, stopping conditions, and parent integration method.
 
 Use retained `resume` only while the same bounded job remains valid. Spawn fresh when role, target identity, independence requirement, or capability contract materially changes.
 
@@ -169,7 +176,7 @@ execution                    → native Pi/pi-subagents
 
 For compatibility, the extension also normalizes the legacy scalar `workflowPreferredModel` into the same ordered list representation.
 
-`workflow_models` does **not** decide capability sufficiency, rank quality, select a model, map roles to an intelligence tier, decide delegation, or perform semantic fallback. The activated parent consumes facts and applies `global-workflow.md`.
+`workflow_models` does **not** decide capability sufficiency, rank quality, select a model, map roles to an intelligence tier, decide delegation, or perform semantic fallback. The activated parent consumes facts and applies the workflow plus this Pi runtime binding.
 
 ## Model disclosure and runtime identity
 
