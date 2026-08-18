@@ -4,9 +4,9 @@ This repository provides an optional engineering workflow for Pi. Normal Pi inte
 
 ## Workflow activation
 
-`workflow/global-workflow.md` is **not ambient policy**. Apply it only when the user explicitly activates the workflow, normally through the project prompt command `/workflow`.
+`workflow/global-workflow.md` is **not ambient policy**. Apply it only when the user explicitly activates the workflow, normally through the Pi prompt command `/workflow`.
 
-Do not automatically enter workflow mode because a task is difficult, involves code, appears risky, or could benefit from subagents. Explicit activation is the boundary.
+Do not automatically enter workflow mode because a task is difficult, involves code, appears risky, or could benefit from subagents. Explicit activation is the boundary. Likewise, an ordinary use of Pi's native `subagent` capability outside an activated workflow does not by itself activate this engineering workflow.
 
 Once activated, `workflow/global-workflow.md` is the sole normative semantic workflow for that request. Preserve its objectives, phase ordering, gates, evidence semantics, execution-versus-verification allocation, independent-refutation requirements, correction/convergence rules, and completion conditions. Higher-priority instructions and more specific applicable project instructions still control scope and authority.
 
