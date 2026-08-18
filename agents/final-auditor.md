@@ -1,6 +1,7 @@
 ---
 name: final-auditor
 description: Read-only final auditor for a tested frozen release candidate.
+workflowPreferredModel: openai-codex/gpt-5.6-luna
 tools: read,bash
 extensions:
 systemPromptMode: replace
