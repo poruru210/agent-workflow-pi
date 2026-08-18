@@ -85,7 +85,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect live Pi model facts for an explicitly activated workflow. Returns availability, context/modality, supported thinking levels, price metadata, current parent model/thinking state, and ordered declarative workflowPreferredModels metadata from workflow role definitions. Legacy scalar workflowPreferredModel is normalized to the same ordered list. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
+      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered declarative workflowPreferredModels metadata from workflow role definitions. Legacy scalar workflowPreferredModel is normalized to the same ordered list. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -100,6 +100,13 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
       const offset = params.offset ?? 0;
       const search = params.search?.toLowerCase();
       const scoped = ctx.scopedModels.length > 0;
+      const sessionModelScope = ctx.scopedModels.map((entry, index) => ({
+        priority: index + 1,
+        key: `${entry.model.provider}/${entry.model.id}`,
+        name: entry.model.name,
+        thinkingLevel: entry.thinkingLevel,
+      }));
+      const sessionPriority = new Map(sessionModelScope.map((entry) => [entry.key, entry.priority]));
       const scopedThinking = new Map(
         ctx.scopedModels.map((entry) => [`${entry.model.provider}/${entry.model.id}`, entry.thinkingLevel]),
       );
@@ -134,17 +141,24 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
             reasoning: model.reasoning,
             supportedThinkingLevels,
             input: model.input,
+            sessionPriority: sessionPriority.get(key),
             scopedThinkingLevel: scopedThinking.get(key),
             costPerMillionTokens: model.cost,
           };
-        })
-        .sort((a, b) => a.key.localeCompare(b.key));
+        });
+
+      if (!scoped) catalog.sort((a, b) => a.key.localeCompare(b.key));
 
       const availability = new Set(available.map((model) => `${model.provider}/${model.id}`));
       const workflowPreferredModels = Object.fromEntries(
         Object.entries(loadWorkflowPreferredModels()).map(([agent, models]) => [
           agent,
-          models.map((model, index) => ({ priority: index + 1, model, available: availability.has(model) })),
+          models.map((model, index) => ({
+            priority: index + 1,
+            model,
+            available: availability.has(model),
+            sessionPriority: sessionPriority.get(model),
+          })),
         ]),
       );
       const page = catalog.slice(offset, offset + limit);
@@ -156,6 +170,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
       const payload = {
         scope: scoped ? "session" : "all-available",
         parentModel,
+        sessionModelScope,
         workflowPreferredModels,
         total: catalog.length,
         offset,
