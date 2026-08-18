@@ -28,23 +28,24 @@ Use the installed `pi-subagents` package directly for runtime mechanics. Do not 
 
 ## Model and reasoning
 
-`workflow_models` is a live **fact surface only**. It may expose available model IDs, context/modality, reasoning capability, supported thinking levels, price metadata, the current parent model/thinking state, and each workflow role's declarative `workflowPreferredModel`. It must not rank models, decide whether a preference is sufficient, or implement workflow policy.
+`workflow_models` is a live **fact surface only**. It may expose available model IDs, context/modality, reasoning capability, supported thinking levels, price metadata, the current parent model/thinking state, and each workflow role's ordered declarative `workflowPreferredModels`. It must not rank model quality, decide capability sufficiency, or implement workflow policy.
 
-`workflowPreferredModel` is workflow-only preference metadata. It is deliberately not Pi/pi-subagents native `model:` frontmatter and does not participate automatically in native model resolution. The activated parent evaluates it under the Job Lease before launch.
+`workflowPreferredModels` is workflow-only preference metadata expressed as an ordered list. It is deliberately not Pi/pi-subagents native `model:` frontmatter and does not participate automatically in native model resolution. The list contains preferred candidates, not pins, ceilings, or an operational fallback chain. The activated parent evaluates the candidates under the current Job Lease before every launch.
 
-For each delegated workflow job, select the concrete model in this order:
+For each delegated workflow job, select the concrete model as follows:
 
-1. an explicit user model instruction for that job;
-2. that role's `workflowPreferredModel`, when it is currently available and capability-sufficient and does not violate a workflow requirement such as T2 model diversity, modality/context needs, or an independence constraint;
-3. otherwise, dynamic selection from current live model facts using the workflow's capability, risk, evidence, and cost criteria.
+1. Honor an explicit user model instruction for that job when it is compatible with higher-priority constraints.
+2. Otherwise inspect that role's `workflowPreferredModels` in order and choose the first candidate that is currently available, capability-sufficient for the exact Job Lease, and compatible with workflow requirements such as modality/context, independence, or T2 model diversity.
+3. If a preferred candidate is unavailable or capability-insufficient, continue to the next preferred candidate rather than treating the preference as a waiver.
+4. If no preferred candidate is suitable, or the role has no preference list, select dynamically from the full live model catalog using the workflow's capability, risk, evidence, diversity, and cost criteria.
 
-When bypassing an available `workflowPreferredModel`, state the concrete reason. Availability alone is not capability sufficiency, and a declared preference is never a waiver of workflow requirements.
+The parent may intentionally choose outside the preference list when a workflow requirement justifies it. For example, a T2 lane may need model diversity even when the first preferred candidate is otherwise sufficient. When bypassing an available higher-priority preferred candidate, state the concrete decision-bearing reason.
 
-Once the parent has selected a model, pass that concrete model as a per-run override for the child. Do not leave an activated workflow child to implicit parent-model inheritance or describe the selected model only as `inherit`, `default`, or `parent`. This keeps the semantic model choice explicit while still using Pi's native execution path.
+Once the parent has selected a model, pass that concrete model as a per-run override for the child. Do not leave an activated workflow child to implicit parent-model inheritance or describe the selected model only as `inherit`, `default`, or `parent`.
 
-Model and reasoning are separate decisions. Choose the lowest sufficient supported reasoning level for the current Job Lease rather than pinning one level by role. For workflowScript paths that encode thinking in the model string, use the selected concrete model-with-thinking form supported by Pi.
+**Reasoning/effort is fully dynamic and independent of `workflowPreferredModels`.** The preference list contains models only and must not encode a thinking level. For every Job Lease, choose the lowest sufficient reasoning level supported by the selected model using the workflow's ambiguity, depth, harm, evidence, and verification criteria. If the model changes for any reason, make a fresh effort decision; never carry a previous effort level forward merely because it was used with another model or another job.
 
-Native `fallbackModels` remain an operational provider/runtime fallback for quota, rate limit, authentication, timeout, overload, or unavailable model. They are not semantic capability escalation. If runtime fallback occurs, the actual model may differ from the selected model.
+Native `fallbackModels` remain an operational provider/runtime fallback for quota, rate limit, authentication, timeout, overload, or unavailable model. They are not the semantic preference list and are not semantic capability escalation. If runtime fallback occurs, the actual model may differ from the selected model.
 
 Before every delegated workflow turn, show the user the bounded job/role, the **concrete selected provider/model**, the selected reasoning level, and the rationale. Never use only `parent inherited` or equivalent as the model disclosure.
 

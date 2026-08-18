@@ -19,10 +19,19 @@ function unquoteScalar(value: string): string {
   return trimmed;
 }
 
-function loadWorkflowPreferredModels(): Record<string, string> {
+function parseInlineList(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    return trimmed.slice(1, -1).split(",").map((item) => unquoteScalar(item)).filter(Boolean);
+  }
+  return [unquoteScalar(trimmed)].filter(Boolean);
+}
+
+function loadWorkflowPreferredModels(): Record<string, string[]> {
   if (!fs.existsSync(AGENTS_DIR)) return {};
 
-  const preferences: Record<string, string> = {};
+  const preferences: Record<string, string[]> = {};
   for (const entry of fs.readdirSync(AGENTS_DIR, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
 
@@ -30,16 +39,42 @@ function loadWorkflowPreferredModels(): Record<string, string> {
     const frontmatter = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
     if (!frontmatter) continue;
 
+    const lines = frontmatter.split(/\r?\n/);
     let name: string | undefined;
-    let preferredModel: string | undefined;
-    for (const line of frontmatter.split(/\r?\n/)) {
-      const field = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/);
+    const preferredModels: string[] = [];
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const field = lines[i].match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/);
       if (!field) continue;
-      if (field[1] === "name") name = unquoteScalar(field[2]);
-      if (field[1] === "workflowPreferredModel") preferredModel = unquoteScalar(field[2]);
+
+      const key = field[1];
+      const value = field[2];
+      if (key === "name") {
+        name = unquoteScalar(value);
+        continue;
+      }
+      if (key === "workflowPreferredModel") {
+        preferredModels.push(...parseInlineList(value));
+        continue;
+      }
+      if (key !== "workflowPreferredModels") continue;
+
+      if (value.trim()) {
+        preferredModels.push(...parseInlineList(value));
+        continue;
+      }
+
+      let j = i + 1;
+      while (j < lines.length) {
+        const item = lines[j].match(/^\s+-\s+(.+?)\s*$/);
+        if (!item) break;
+        preferredModels.push(unquoteScalar(item[1]));
+        j += 1;
+      }
+      i = j - 1;
     }
 
-    if (name && preferredModel) preferences[name] = preferredModel;
+    if (name && preferredModels.length > 0) preferences[name] = [...new Set(preferredModels.filter(Boolean))];
   }
 
   return preferences;
@@ -50,7 +85,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect live Pi model facts for an explicitly activated workflow. Returns availability, context/modality, supported thinking levels, price metadata, current parent model/thinking state, and declarative workflowPreferredModel metadata from workflow role definitions. It does not rank model quality, decide whether a preference is capability-sufficient, recommend models, or decide workflow policy.",
+      "Inspect live Pi model facts for an explicitly activated workflow. Returns availability, context/modality, supported thinking levels, price metadata, current parent model/thinking state, and ordered declarative workflowPreferredModels metadata from workflow role definitions. Legacy scalar workflowPreferredModel is normalized to the same ordered list. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -66,10 +101,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
       const search = params.search?.toLowerCase();
       const scoped = ctx.scopedModels.length > 0;
       const scopedThinking = new Map(
-        ctx.scopedModels.map((entry) => [
-          `${entry.model.provider}/${entry.model.id}`,
-          entry.thinkingLevel,
-        ]),
+        ctx.scopedModels.map((entry) => [`${entry.model.provider}/${entry.model.id}`, entry.thinkingLevel]),
       );
       const available = scoped
         ? ctx.scopedModels.map((entry) => entry.model)
@@ -110,19 +142,15 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
 
       const availability = new Set(available.map((model) => `${model.provider}/${model.id}`));
       const workflowPreferredModels = Object.fromEntries(
-        Object.entries(loadWorkflowPreferredModels()).map(([agent, model]) => [
+        Object.entries(loadWorkflowPreferredModels()).map(([agent, models]) => [
           agent,
-          { model, available: availability.has(model) },
+          models.map((model, index) => ({ priority: index + 1, model, available: availability.has(model) })),
         ]),
       );
       const page = catalog.slice(offset, offset + limit);
       const hasMore = offset + page.length < catalog.length;
       const parentModel = ctx.model
-        ? {
-            key: `${ctx.model.provider}/${ctx.model.id}`,
-            name: ctx.model.name,
-            thinkingLevel: ctx.thinkingLevel,
-          }
+        ? { key: `${ctx.model.provider}/${ctx.model.id}`, name: ctx.model.name, thinkingLevel: ctx.thinkingLevel }
         : undefined;
 
       const payload = {

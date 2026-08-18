@@ -1,7 +1,8 @@
 ---
 name: pre-action-auditor
 description: Read-only pre-action auditor for planned external writes and exact target state.
-workflowPreferredModel: openai-codex/gpt-5.6-luna
+workflowPreferredModels:
+  - openai-codex/gpt-5.6-luna
 tools: read,bash
 extensions:
 systemPromptMode: replace

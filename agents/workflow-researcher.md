@@ -1,7 +1,8 @@
 ---
 name: workflow-researcher
 description: Read-only researcher for bounded workflow evidence and source discovery.
-workflowPreferredModel: openai-codex/gpt-5.6-luna
+workflowPreferredModels:
+  - openai-codex/gpt-5.6-luna
 tools: read,bash
 extensions:
 systemPromptMode: replace
