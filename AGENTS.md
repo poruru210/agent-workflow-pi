@@ -35,7 +35,7 @@ Prefer the builtin agent itself over copying/ejecting it. Generic agent methodol
 
 ### Context and responsibility boundaries
 
-For workflow `worker`, `scout`, and `researcher` runs, use explicit `context: "fresh"` unless a concrete same-job reason requires forked context. The Job Lease carries the exact objective, approved design/constraints, scope, evidence needs, authority, and stopping conditions required by the child.
+For workflow `worker`, `scout`, and `researcher` runs, use explicit `context: "fresh"` unless a concrete same-job reason requires forked context. The Job Lease carries the exact objective, approved design/constraints, scope, evidence needs, authority, and stopping conditions required by the child. For `scout`/`researcher`, override their default `context.md`/`research.md` output when it would dirty the candidate worktree: normally use `output: false` plus a concise return, or an explicit non-candidate artifact path with `outputMode: "file-only"` when the brief is large. Disable progress files for short-lived read-only runs unless durable progress is intentionally needed.
 
 For every independent `reviewer` run, explicitly use `context: "fresh"`. Project instructions may remain inherited, but the parent conversation and prior reviewer conclusions must not be implicitly forked into the child.
 
@@ -70,7 +70,7 @@ Respect workflow phase ordering. If behavioral verification is gated behind earl
 For deterministic verification after the applicable audit gate:
 
 - prefer native `acceptance.verify` for multiple explicit commands and `gate` for a single deterministic command;
-- use a dedicated fresh no-edit builtin `worker` as the verification carrier when a subagent run is needed, with an explicitly selected low-cost capability-sufficient model/reasoning level rather than inheriting the parent model;
+- use a dedicated fresh no-edit builtin `worker` as the verification carrier when a subagent run is needed, with an explicitly selected low-cost capability-sufficient model/reasoning level rather than inheriting the parent model; use `output: false` and `progress: false` unless an explicit non-candidate artifact is required;
 - the verification carrier must not modify candidate-bearing files or weaken U0/U1 cases, thresholds, fixtures, or oracles;
 - for verbose/E2E commands, redirect complete stdout/stderr to a run/mission/temp artifact outside candidate-bearing files and return only concise status, counts, failed-test names, a bounded diagnostic tail, artifact path, and hash/identity when useful;
 - do not stream large successful logs into the parent or reviewer context;

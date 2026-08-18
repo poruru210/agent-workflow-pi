@@ -78,6 +78,8 @@ Use builtin `scout` for local code reconnaissance.
 
 Use builtin `researcher` for official documentation, specifications, upstream issues/PRs, compatibility information, and other web evidence. `pi-web-access` supplies the builtin researcher's web tools. Research output is design input; the parent remains architecture/contract authority.
 
+Builtin `scout`/`researcher` have default `context.md`/`research.md` outputs. Workflow launches should normally override those defaults with `output: false` and concise inline results, or use an explicit non-candidate artifact path plus `outputMode: "file-only"` for large briefs. Disable progress files for short read-only runs unless durable progress is intentional.
+
 This prevents the parent from carrying large upstream searches and long source material in its own context when a concise sourced handoff is enough.
 
 ## Reviewer independence
@@ -111,7 +113,7 @@ Verification remains a separate semantic phase; do not move full behavioral test
 For deterministic verification:
 
 1. freeze/confirm the candidate identity required by the workflow;
-2. launch a fresh **no-edit builtin `worker`** using an explicitly selected low-cost capability-sufficient model and reasoning level;
+2. launch a fresh **no-edit builtin `worker`** using an explicitly selected low-cost capability-sufficient model and reasoning level, normally with `output: false` and `progress: false`;
 3. attach one `gate` command or a matrix of native `acceptance.verify` commands;
 4. redirect verbose/full/E2E stdout/stderr to run/mission/temp artifacts outside candidate-bearing files;
 5. return only concise exit/status, counts, failed-test names, a bounded tail, artifact path, and useful identity/hash data;
