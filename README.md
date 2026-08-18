@@ -55,7 +55,7 @@ Using Pi's native `subagent` capability outside an activated workflow also does 
 
 Activation still does not mean every task needs a child. Read-only questions, tiny mechanical edits, integration glue, conflict resolution, and similar work may remain parent-direct when appropriate.
 
-For non-trivial candidate-bearing implementation, repair, or migration, however, the Pi runtime binding uses a different default: the parent acts as architect/orchestrator/integrator and delegates one coherent bounded write package to `workflow-implementer`. Runtime code, public types, focused tests, and documentation that belong to the same feature are normally kept together in that package. Tight coupling across those surfaces is not by itself a reason for the parent to implement them.
+For non-trivial candidate-bearing implementation, repair, or migration, however, the Pi runtime binding uses a different default: the parent acts as architect/orchestrator/integrator and delegates coherent bounded write package(s) to `workflow-implementer`. Runtime code, public types, focused tests, and documentation that belong to the same feature are normally kept together in one package. Multiple writer packages are used only when the task has genuinely independent ownership/integration boundaries that make separate or parallel implementation beneficial without shared-state conflict. Tight coupling across surfaces is not by itself a reason for the parent to implement them.
 
 Parent-direct candidate editing is therefore an exception rather than the ordinary route. It is appropriate for genuinely tiny/mechanical work, formatter-only corrections, narrow integration/conflict resolution, unavailable or inapplicable delegation, or when no coherent bounded writer lease can be formed without the parent effectively doing the same implementation work. This allocation rule is separate from T1/T2 independence; direct work never waives required independent evidence.
 
@@ -69,7 +69,7 @@ This is intentionally a responsibility split, not a delegation quota or scoring 
 
 ## Semantic source of truth
 
-After explicit activation, `workflow/global-workflow.md` remains authoritative for objectives, work definition, risk, baseline, C0, T0/T1/T2, RC/VER/TEST-RC/INT/CHG/CONT, U0/U1, implementation snapshots, release-candidate identity, evidence dependencies, audits, convergence, external-write readiness, and completion.
+After explicit activation, `workflow/global-workflow.md` remains authoritative for objectives, work definition, risk, baseline, C0, T0/T1/T2, RC/VER/TEST-RC/INT/CHG/CONT, U0/U1, implementation snapshots, release-candidate identity, evidence dependencies, audits, convergence, external-write readiness, and completion. `AGENTS.md` supplies the Pi-specific runtime/responsibility binding for parent-versus-worker ownership without weakening those semantic/evidence rules.
 
 These are semantic/evidence concepts. They are not converted into a custom TypeScript phase machine.
 
