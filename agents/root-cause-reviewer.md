@@ -1,7 +1,7 @@
 ---
 name: root-cause-reviewer
 description: Read-only blind-first reviewer for independent root-cause challenge.
-model: openai-codex/gpt-5.6-luna
+workflowPreferredModel: openai-codex/gpt-5.6-luna
 tools: read,bash
 extensions:
 systemPromptMode: replace
