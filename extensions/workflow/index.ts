@@ -8,7 +8,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect the live Pi model catalog for delegation/model-selection decisions. Returns availability/capability/price metadata only; it does not delegate or rank model quality.",
+      "Inspect the live Pi model catalog for delegation/model-selection decisions. Returns availability/capability/price metadata only; it does not delegate or rank model quality. For availability-wide comparison, load the catalog once per parent session, prefer limit=50, continue paging until hasMore=false, and reuse that result for later delegation decisions. Re-query only when the model registry/session scope may have materially changed, the selected model is rejected/unavailable, or required metadata was not captured.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -58,7 +58,6 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
             maxTokens: model.maxTokens,
             reasoning: model.reasoning,
             supportedThinkingLevels,
-            thinkingLevelMap: model.thinkingLevelMap,
             input: model.input,
             scopedThinkingLevel: scopedThinking.get(`${model.provider}/${model.id}`),
             costPerMillionTokens: model.cost,
@@ -67,17 +66,21 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
         .sort((a, b) => a.key.localeCompare(b.key));
 
       const page = catalog.slice(offset, offset + limit);
+      const hasMore = offset + page.length < catalog.length;
       const payload = {
         scope: scoped ? "session" : "all-available",
         total: catalog.length,
         offset,
         returned: page.length,
-        hasMore: offset + page.length < catalog.length,
+        hasMore,
+        ...(hasMore
+          ? { selectionWarning: "Catalog is incomplete. Fetch the next page before making an availability-wide cheapest/best-model claim." }
+          : {}),
         models: page,
       };
 
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         details: payload,
       };
     },
