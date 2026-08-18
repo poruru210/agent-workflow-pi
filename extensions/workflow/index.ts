@@ -1,101 +1,24 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-const AGENTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "agents");
 
-// These are workflow-only preference hints for pi-subagents builtins that this
-// repository reuses directly. They do not modify the builtin agent, pin a model,
-// or participate in pi-subagents native model resolution.
-const BUILTIN_WORKFLOW_PREFERRED_MODELS: Record<string, string[]> = {
+// Workflow-only preference hints for pi-subagents builtins reused directly by this
+// repository. They do not modify builtin agents, pin models, or participate in
+// pi-subagents native model resolution.
+const WORKFLOW_PREFERRED_MODELS: Record<string, string[]> = {
+  researcher: ["openai-codex/gpt-5.6-luna"],
   reviewer: ["openai-codex/gpt-5.6-luna"],
+  scout: ["openai-codex/gpt-5.6-luna"],
   worker: ["openai-codex/gpt-5.6-luna"],
 };
-
-function unquoteScalar(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-
-function parseInlineList(value: string): string[] {
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-    return trimmed.slice(1, -1).split(",").map((item) => unquoteScalar(item)).filter(Boolean);
-  }
-  return [unquoteScalar(trimmed)].filter(Boolean);
-}
-
-function loadWorkflowPreferredModels(): Record<string, string[]> {
-  const preferences: Record<string, string[]> = Object.fromEntries(
-    Object.entries(BUILTIN_WORKFLOW_PREFERRED_MODELS).map(([name, models]) => [name, [...models]]),
-  );
-  if (!fs.existsSync(AGENTS_DIR)) return preferences;
-
-  for (const entry of fs.readdirSync(AGENTS_DIR, { withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-
-    const text = fs.readFileSync(path.join(AGENTS_DIR, entry.name), "utf-8");
-    const frontmatter = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
-    if (!frontmatter) continue;
-
-    const lines = frontmatter.split(/\r?\n/);
-    let name: string | undefined;
-    const preferredModels: string[] = [];
-
-    for (let i = 0; i < lines.length; i += 1) {
-      const field = lines[i].match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/);
-      if (!field) continue;
-
-      const key = field[1];
-      const value = field[2];
-      if (key === "name") {
-        name = unquoteScalar(value);
-        continue;
-      }
-      if (key === "workflowPreferredModel") {
-        preferredModels.push(...parseInlineList(value));
-        continue;
-      }
-      if (key !== "workflowPreferredModels") continue;
-
-      if (value.trim()) {
-        preferredModels.push(...parseInlineList(value));
-        continue;
-      }
-
-      let j = i + 1;
-      while (j < lines.length) {
-        const item = lines[j].match(/^\s+-\s+(.+?)\s*$/);
-        if (!item) break;
-        preferredModels.push(unquoteScalar(item[1]));
-        j += 1;
-      }
-      i = j - 1;
-    }
-
-    if (name && preferredModels.length > 0) preferences[name] = [...new Set(preferredModels.filter(Boolean))];
-  }
-
-  return preferences;
-}
 
 export default function workflowModelCatalog(pi: ExtensionAPI) {
   pi.registerTool({
     name: "workflow_models",
     label: "Workflow Models",
     description:
-      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered declarative workflowPreferredModels metadata from custom workflow roles plus reused builtin runtime roles. Legacy scalar workflowPreferredModel is normalized to the same ordered list. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
+      "Inspect live Pi model facts for an explicitly activated workflow. Returns the current parent model/thinking state, the ordered per-session scoped model list when one exists, availability/context/modality/reasoning/price facts, and ordered workflow preference hints for reused pi-subagents builtin roles. This tool does not rank model quality, decide capability sufficiency, recommend a selected model, or decide workflow policy.",
     parameters: Type.Object({
       provider: Type.Optional(Type.String()),
       minContextWindow: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -161,7 +84,7 @@ export default function workflowModelCatalog(pi: ExtensionAPI) {
 
       const availability = new Set(available.map((model) => `${model.provider}/${model.id}`));
       const workflowPreferredModels = Object.fromEntries(
-        Object.entries(loadWorkflowPreferredModels()).map(([agent, models]) => [
+        Object.entries(WORKFLOW_PREFERRED_MODELS).map(([agent, models]) => [
           agent,
           models.map((model, index) => ({
             priority: index + 1,
